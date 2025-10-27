@@ -4,17 +4,17 @@ Aice PS 是一款功能强大的网页版 AI 照片编辑器，利用 Google ais
 
 ![Aice PS 界面截图](public/images/show.jpg)
 
-## 注意，调用 gemini api key 是需要收费的。但直接调用环境变量中的api是免费的。[推荐可大方使用的极具性价比API平台 2分钱一张，高清1毛2](https://nb2.kuai.host/)
+## 注意，调用 gemini api key 是需要收费的。但直接调用环境变量中的api是免费的。[推荐可大方使用的极具性价比API平台 0.03x元一张](https://nb.kuai.host/)
 
 ### [AiStudio 【NanoBanana APP】](https://ai.studio/apps/drive/1JSVTWc7Pe1GfLLrQcBWPZF_yH_80xUGg) 
 
 > 登录了google aistudio 的可以直接打开上面 app 使用。完全免费
 
-### [【可自部署版本 DEMO】https://nb2.kuai.host/](https://nb2.kuai.host/)
+### [【低价实用稳定用香蕉】https://nb.kuai.host/](https://nb.kuai.host/)
 
 > #### 自部署版本，国内可直接用，已经配套了超值的香蕉API，推荐使用。
 
-> #### 请大家谨慎使用自己的gemini api key。[推荐可大方使用的极具性价比API平台](https://cnb.build/no.1/api/-/issues/2)
+> #### 请大家谨慎使用自己的gemini api key。
 
  [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)  [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11) 
 
