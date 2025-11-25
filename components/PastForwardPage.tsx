@@ -168,7 +168,8 @@ const PastForwardPage: React.FC = () => {
         }
     };
     
-    const isGenerationComplete = Object.values(generatedImages).every(img => img.status === 'done' || img.status === 'error');
+// FIX: Explicitly type `img` to resolve TypeScript inference issue.
+    const isGenerationComplete = Object.values(generatedImages).every((img: GeneratedImage) => img.status === 'done' || img.status === 'error');
 
     return (
         <div className="w-full flex flex-col items-center justify-center text-center p-4 min-h-[80vh] font-['Roboto'] relative overflow-hidden">
@@ -185,8 +186,8 @@ const PastForwardPage: React.FC = () => {
                     transition={{ duration: 0.5, ease: 'easeInOut' }}
                     className="flex flex-col items-center gap-4"
                 >
-                    <h1 className="font-['Caveat'] text-7xl md:text-9xl font-bold text-white tracking-wider">Past Forward</h1>
-                    <p className="text-gray-300 text-lg md:text-2xl -mt-4">Travel through time with your photos.</p>
+                    <h1 className="font-['Caveat'] text-7xl md:text-9xl font-bold text-white tracking-wider">时空穿越</h1>
+                    <p className="text-gray-300 text-lg md:text-2xl -mt-4">让照片穿越时空，体验不同年代的风采。</p>
                     
                     <div 
                         className="w-64 mt-8 bg-[#fdf5e6] rounded-lg shadow-2xl p-4 flex flex-col justify-center cursor-pointer group transition-all duration-300 ease-in-out"
@@ -202,13 +203,13 @@ const PastForwardPage: React.FC = () => {
                                     style={{ maxHeight: '400px' }}
                                 />
                                 <p className="font-bold text-center pt-4 font-['Permanent_Marker'] text-gray-700">
-                                    Click to Change
+                                    点击更换
                                 </p>
                             </>
                         ) : (
                             <div className="text-center text-gray-700">
                                 <UploadIcon className="w-12 h-12 mx-auto text-gray-500" />
-                                <p className="font-bold mt-2 font-['Permanent_Marker']">Click to Start</p>
+                                <p className="font-bold mt-2 font-['Permanent_Marker']">点击开始</p>
                             </div>
                         )}
                     </div>
@@ -216,9 +217,9 @@ const PastForwardPage: React.FC = () => {
 
                     {appState === 'image-uploaded' && (
                         <div className="flex gap-4 mt-4">
-                            <button onClick={() => fileInputRef.current?.click()} className="text-gray-300 hover:text-white underline">Change Photo</button>
+                            <button onClick={() => fileInputRef.current?.click()} className="text-gray-300 hover:text-white underline">更换照片</button>
                             <button onClick={handleGenerateClick} className="px-8 py-3 bg-[#fecb2e] text-black font-['Permanent_Marker'] text-xl rounded-full shadow-lg hover:scale-105 transition-transform">
-                                GENERATE
+                                开始生成
                             </button>
                         </div>
                     )}
@@ -234,7 +235,7 @@ const PastForwardPage: React.FC = () => {
                     transition={{ duration: 0.5 }}
                     className="w-full h-full flex flex-col items-center"
                 >
-                    <h2 className="font-['Caveat'] text-5xl md:text-6xl font-bold text-white tracking-wider my-4">Your Trip Through Time</h2>
+                    <h2 className="font-['Caveat'] text-5xl md:text-6xl font-bold text-white tracking-wider my-4">你的时空之旅</h2>
                      
                     {/* Desktop View */}
                     <div ref={dragAreaRef} className="relative z-0 w-full max-w-5xl h-[600px] mt-4 hidden md:block">
@@ -268,14 +269,14 @@ const PastForwardPage: React.FC = () => {
                     </div>
 
                     <div className="relative z-10 mt-8 flex flex-col md:flex-row items-center gap-4">
-                        <button onClick={resetState} className="text-gray-300 hover:text-white underline">Start Over</button>
+                        <button onClick={resetState} className="text-gray-300 hover:text-white underline">重新开始</button>
                          {appState === 'results-shown' && isGenerationComplete && (
-                            <button 
-                                onClick={handleDownloadAlbum} 
+                            <button
+                                onClick={handleDownloadAlbum}
                                 disabled={isLoading}
                                 className="px-8 py-3 bg-[#fecb2e] text-black font-['Permanent_Marker'] text-xl rounded-full shadow-lg hover:scale-105 transition-transform flex items-center gap-2 disabled:bg-yellow-700 disabled:cursor-not-allowed">
                                 {isLoading ? <Spinner className="w-6 h-6"/> : <DownloadIcon className="w-6 h-6"/>}
-                                Download Album
+                                下载相册
                             </button>
                         )}
                     </div>

@@ -1,16 +1,18 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 
-// FIX: Corrected React import statement. The 'a' was a typo.
 import React, { useState, useEffect, useMemo } from 'react';
-import { UploadIcon, PaintBrushIcon, TemplateLibraryIcon } from './icons';
+import { UploadIcon, PaintBrushIcon, TemplateLibraryIcon, SparkleIcon, XMarkIcon, CheckIcon } from './icons';
 import { generateImageFromText } from '../services/geminiService';
 import Spinner from './Spinner';
 import { Template } from '../App';
+import { motion, AnimatePresence } from 'framer-motion';
+import BatchSelector from './BatchSelector';
 
-// New component to handle fetching and displaying template icon
+// Refined Template Button
 const TemplateButton: React.FC<{
   template: Template;
   onSelect: (template: Template) => void;
@@ -22,41 +24,39 @@ const TemplateButton: React.FC<{
     const fetchImage = async () => {
       try {
         const response = await fetch(template.iconUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch template icon: ${template.iconUrl}`);
-        }
+        if (!response.ok) throw new Error('Failed to load');
         const blob = await response.blob();
         objectUrl = URL.createObjectURL(blob);
         setIconSrc(objectUrl);
       } catch (error) {
-        console.error(error);
-        // Could set a placeholder error image source here
+        // Fail silently
       }
     };
-
     fetchImage();
-
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [template.iconUrl]);
 
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.05, y: -2 }}
+      whileTap={{ scale: 0.95 }}
       onClick={() => onSelect(template)}
-      className="aspect-square bg-gray-900/50 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 hover:ring-2 ring-blue-400 focus:outline-none focus:ring-2 ring-blue-400"
+      className="relative group aspect-square rounded-xl overflow-hidden border border-white/10 bg-gray-800/50 shadow-lg"
       title={template.name}
     >
       {iconSrc ? (
-        <img src={iconSrc} alt={template.name} className="w-full h-full object-cover" />
+        <>
+            <img src={iconSrc} alt={template.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-2">
+                <span className="text-xs text-white font-medium truncate w-full text-center">{template.name}</span>
+            </div>
+        </>
       ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <Spinner className="w-6 h-6 text-gray-500" />
+        <div className="w-full h-full flex items-center justify-center bg-gray-900">
+          <Spinner className="w-6 h-6 text-gray-600" />
         </div>
       )}
-    </button>
+    </motion.button>
   );
 };
 
@@ -72,67 +72,39 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
   const [generationPrompt, setGenerationPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string|null>(null);
-  const [aspectRatio, setAspectRatio] = useState<'1:1' | '16:9' | '9:16' | '4:3' | '3:4'>('1:1');
+  const [aspectRatio, setAspectRatio] = useState<string>('1:1');
+  const [imageCount, setImageCount] = useState<number>(1);
+  const [generatedCandidates, setGeneratedCandidates] = useState<string[] | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
 
   useEffect(() => {
-    // Fetch templates on component mount
     const fetchTemplates = async () => {
       try {
         const response = await fetch('/templates.json');
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
         const data: Template[] = await response.json();
         setTemplates(data);
-      } catch (error) {
-        console.error("Failed to fetch templates:", error);
-      }
+      } catch (error) { console.error(error); }
     };
-
     fetchTemplates();
   }, []);
 
   const displayedTemplates = useMemo(() => {
-    if (templates.length <= 6) {
-        return templates;
-    }
-    const shuffled = [...templates].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, 6);
+    if (templates.length <= 6) return templates;
+    return [...templates].sort(() => 0.5 - Math.random()).slice(0, 6);
   }, [templates]);
 
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
-      // Check if the event target is an input or textarea to avoid hijacking paste.
       const target = event.target as HTMLElement;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-        return;
-      }
-
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
       if (event.clipboardData && event.clipboardData.files.length > 0) {
         const file = event.clipboardData.files[0];
-        if (file.type.startsWith('image/')) {
-          onFileSelect(event.clipboardData.files);
-        }
+        if (file.type.startsWith('image/')) onFileSelect(event.clipboardData.files);
       }
     };
-
     window.addEventListener('paste', handlePaste);
-
-    return () => {
-      window.removeEventListener('paste', handlePaste);
-    };
+    return () => window.removeEventListener('paste', handlePaste);
   }, [onFileSelect]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFileSelect(e.target.files);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDraggingOver(false);
-    onFileSelect(e.dataTransfer.files);
-  };
 
   const handleGenerate = async () => {
     if (!generationPrompt.trim()) {
@@ -141,103 +113,191 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
     }
     setIsGenerating(true);
     setGenerationError(null);
+    setGeneratedCandidates(null);
+    
     try {
-        const dataUrl = await generateImageFromText(generationPrompt, aspectRatio);
-        onImageGenerated(dataUrl);
+        const urls = await generateImageFromText(generationPrompt, aspectRatio, imageCount);
+        if (urls.length === 1) {
+             onImageGenerated(urls[0]);
+        } else {
+             setGeneratedCandidates(urls);
+        }
     } catch (e) {
-        console.error(e);
         setGenerationError(e instanceof Error ? e.message : '生成图像时发生未知错误。');
     } finally {
         setIsGenerating(false);
     }
   };
+  
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      setIsDraggingOver(false);
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          onFileSelect(e.dataTransfer.files);
+      }
+  };
 
-  const aspectRatios: { name: string; value: typeof aspectRatio }[] = [
-    { name: '方形', value: '1:1' },
-    { name: '横向', value: '16:9' },
-    { name: '纵向', value: '9:16' },
-    { name: '风景', value: '4:3' },
-    { name: '肖像', value: '3:4' },
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+          onFileSelect(e.target.files);
+      }
+  };
+
+  const aspectRatios: { name: string; value: string }[] = [
+    { name: '1:1', value: '1:1' },
+    { name: '4:3', value: '4:3' },
+    { name: '3:4', value: '3:4' },
+    { name: '16:9', value: '16:9' },
+    { name: '9:16', value: '9:16' },
+    { name: '3:2', value: '3:2' },
+    { name: '2:3', value: '2:3' },
+    { name: '21:9', value: '21:9' },
+    { name: '9:21', value: '9:21' },
   ];
 
   return (
-    <div className="flex flex-col items-center gap-6 animate-fade-in w-full max-w-5xl mx-auto text-center p-4 sm:p-8">
-      <h1 className="text-5xl font-extrabold tracking-tight text-gray-100 sm:text-6xl md:text-7xl">
-        Nano Banana <span className="text-blue-400">化繁为简</span>
-      </h1>
-      <div className="max-w-2xl text-lg text-gray-400 md:text-xl flex flex-col gap-2">
-        <h3 className="text-3xl font-extrabold tracking-tight text-gray-100 sm:text-4xl md:text-5xl">至强改图模型&超好用应用</h3>
-        <p className="font-semibold text-yellow-300">用AiStudio后台API免费用,也<a href="https://youtu.be/ZxjiZKnvjt4">可 [自行部署]（Gemini API兼容）</a></p>
-      </div>
-      
-      <div className="w-full max-w-5xl mt-8 grid grid-cols-1 md:grid-cols-10 gap-6 items-stretch">
+    <div className="w-full max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8 animate-fade-in relative">
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* Generation Column */}
-        <div className="md:col-span-4 p-6 sm:p-8 bg-gray-800/30 border-2 border-gray-700/50 rounded-2xl backdrop-blur-sm flex flex-col text-left">
-            <div className="flex flex-col gap-4 h-full">
-                <h2 className="text-2xl font-bold text-gray-100 text-center">用 AI <span className="text-purple-400">创造图像</span> 并修之</h2>
+        {/* Left: Text to Image */}
+        <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="lg:col-span-5 glass-panel rounded-3xl p-1"
+        >
+            <div className="bg-gray-900/50 rounded-[22px] p-6 flex flex-col gap-5 h-full relative">
+                {generatedCandidates && (
+                    <div className="absolute inset-0 bg-gray-900/95 z-20 rounded-[22px] p-4 flex flex-col">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-white">选择一张图片</h3>
+                            <button onClick={() => setGeneratedCandidates(null)} className="text-gray-400 hover:text-white">
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 p-1">
+                            {generatedCandidates.map((url, idx) => (
+                                <div key={idx} className="relative group cursor-pointer aspect-square rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all" onClick={() => onImageGenerated(url)}>
+                                    <img src={url} className="w-full h-full object-cover" alt={`Generated ${idx}`}/>
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <CheckIcon className="w-8 h-8 text-white drop-shadow-lg" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-purple-500/20 rounded-lg">
+                        <SparkleIcon className="w-6 h-6 text-purple-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white">AI 绘画 & 修图</h3>
+                </div>
+
                 <textarea
                     value={generationPrompt}
                     onChange={(e) => setGenerationPrompt(e.target.value)}
-                    placeholder="例如，“一只戴着宇航员头盔的小狗漂浮在多彩的星云中，数字艺术”"
-                    className="w-full bg-gray-800 border border-gray-600 text-gray-200 rounded-lg p-4 focus:ring-2 focus:ring-purple-500 focus:outline-none transition text-base h-28 resize-none disabled:opacity-60"
+                    placeholder="描述您想象中的画面... 例如：“赛博朋克风格的雨夜街道，霓虹灯闪烁”"
+                    className="w-full bg-black/30 border border-white/10 rounded-xl p-4 text-gray-100 focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500/50 outline-none transition-all h-40 resize-none text-lg leading-relaxed placeholder-gray-600"
                     disabled={isGenerating}
                 />
-                <div className="flex flex-wrap items-center gap-2">
-                    <p><span className="text-sm font-medium text-gray-400 mr-2">宽高比:</span></p>
-                    <p>{aspectRatios.map(({ name, value }) => (
-                        <button
-                            key={value}
-                            onClick={() => setAspectRatio(value)}
-                            disabled={isGenerating}
-                            className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all duration-200 active:scale-95 disabled:opacity-50 ${
-                                aspectRatio === value
-                                ? 'bg-gradient-to-br from-purple-600 to-purple-500 text-white shadow-md shadow-purple-500/20' 
-                                : 'bg-white/10 hover:bg-white/20 text-gray-200'
-                            }`}
-                        >
-                            {name}
-                        </button>
-                    ))}</p>
+
+                <div className="space-y-3">
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">宽高比</label>
+                    <div className="flex flex-wrap gap-2">
+                        {aspectRatios.map(({ name, value }) => (
+                            <button
+                                key={value}
+                                onClick={() => setAspectRatio(value)}
+                                disabled={isGenerating}
+                                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                                    aspectRatio === value
+                                    ? 'bg-purple-600/20 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)]' 
+                                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                                }`}
+                            >
+                                {name}
+                            </button>
+                        ))}
+                    </div>
                 </div>
+
                 {generationError && (
-                    <div className="bg-red-500/20 border border-red-500 text-red-300 px-4 py-2 rounded-lg text-center text-sm" role="alert">
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl text-sm">
                         {generationError}
                     </div>
                 )}
-                <div className="flex-grow"></div> {/* Spacer */}
-                <button
-                    onClick={handleGenerate}
-                    disabled={isGenerating}
-                    className="relative w-full inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-purple-600 rounded-full cursor-pointer group hover:bg-purple-500 transition-colors disabled:bg-purple-800 disabled:cursor-not-allowed"
-                >
-                    {isGenerating ? (
-                        <>
-                            <Spinner className="w-6 h-6 mr-3" />
-                            正在生成中...
-                        </>
-                    ) : (
-                        <>
-                            <PaintBrushIcon className="w-6 h-6 mr-3" />
-                            生成图片
-                        </>
-                    )}
-                </button>
+
+                <div className="mt-auto pt-4 flex gap-3">
+                    <BatchSelector count={imageCount} onChange={setImageCount} disabled={isGenerating} />
+                    <button
+                        onClick={handleGenerate}
+                        disabled={isGenerating}
+                        className="flex-1 btn-primary rounded-xl py-3 text-lg flex items-center justify-center gap-2 group relative overflow-hidden"
+                    >
+                        {isGenerating ? (
+                            <>
+                                <Spinner className="w-6 h-6 text-white/80" />
+                                <span className="animate-pulse">正在施展魔法...</span>
+                            </>
+                        ) : (
+                            <>
+                                <PaintBrushIcon className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+                                <span>立即生成</span>
+                            </>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                    </button>
+                </div>
             </div>
-        </div>
+        </motion.div>
         
-        {/* Upload Column */}
-        <div
-          className={`group p-6 rounded-2xl flex flex-col justify-center items-center transition-all duration-300 md:col-span-6 animated-border-glow ${isDraggingOver ? 'is-dragging-over bg-blue-500/20 border-2 border-dashed border-blue-400' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
-          onDragLeave={() => setIsDraggingOver(false)}
-          onDrop={handleDrop}
+        {/* Right: Upload & Templates */}
+        <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="lg:col-span-7 flex flex-col gap-6"
         >
-          <div className="flex flex-col items-center gap-3 text-center w-full">
+            {/* Upload Zone */}
+            <div
+                className={`group relative glass-panel rounded-3xl p-1 transition-all duration-500 ${isDraggingOver ? 'ring-2 ring-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.3)] scale-[1.01]' : ''}`}
+                onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
+                onDragLeave={() => setIsDraggingOver(false)}
+                onDrop={handleDrop}
+            >
+                <div className="bg-gray-900/50 rounded-[22px] p-8 flex flex-col items-center justify-center gap-4 min-h-[240px] cursor-pointer hover:bg-gray-800/50 transition-colors border-2 border-dashed border-white/5 group-hover:border-blue-500/30"
+                     onClick={() => document.getElementById('image-upload-start')?.click()}
+                >
+                    <div className="p-5 bg-blue-500/10 rounded-full group-hover:scale-110 transition-transform duration-300 group-hover:bg-blue-500/20">
+                         <UploadIcon className="w-10 h-10 text-blue-400" />
+                    </div>
+                    <div className="text-center">
+                        <h3 className="text-xl font-bold text-white mb-1">上传图片开始创作</h3>
+                        <p className="text-gray-400">支持拖拽、粘贴或点击上传</p>
+                    </div>
+                    <input id="image-upload-start" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                </div>
+            </div>
+
+            {/* Templates Quick Access */}
             {templates.length > 0 && (
-                <div className="w-full">
-                    <h3 className="text-lg font-semibold text-gray-300 mb-2">或从模板开始</h3>
-                    <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
+                <div className="glass-panel rounded-3xl p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-bold text-gray-200 flex items-center gap-2">
+                            <TemplateLibraryIcon className="w-5 h-5 text-green-400" />
+                            从模板开始
+                        </h3>
+                        <button 
+                            onClick={onShowTemplateLibrary}
+                            className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                        >
+                            查看全部 &rarr;
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                         {displayedTemplates.map(template => (
                             <TemplateButton 
                                 key={template.id} 
@@ -246,40 +306,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
                             />
                         ))}
                     </div>
-
-                    <div className="relative my-3">
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                            <div className="w-full border-t border-gray-600"></div>
-                        </div>
-                        <div className="relative flex justify-center">
-                            <span className="bg-gray-800/30 px-2 text-sm text-gray-400 backdrop-blur-sm">或</span>
-                        </div>
-                    </div>
                 </div>
             )}
-            
-            <div className="w-full">
-              <div className="flex flex-col sm:flex-row gap-2 w-full justify-center">
-                  <button
-                      onClick={() => document.getElementById('image-upload-start')?.click()}
-                      className="flex-grow relative inline-flex items-center justify-center px-10 py-4 text-lg font-bold text-white bg-blue-600 rounded-full cursor-pointer group-hover:bg-blue-500 transition-colors"
-                  >
-                      <UploadIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:rotate-[360deg] group-hover:scale-110" />
-                      上传图片进行编辑
-                  </button>
-                  <button 
-                      onClick={onShowTemplateLibrary}
-                      className="flex-shrink-0 p-4 bg-gray-700 text-gray-200 rounded-full cursor-pointer hover:bg-gray-600 transition-colors"
-                      title="打开模板库"
-                  >
-                      <TemplateLibraryIcon className="w-6 h-6" />
-                  </button>
-              </div>
-              <p className="text-sm text-gray-500 mt-2">也可以直接拖放或粘贴文件到此区域</p>
-              <input id="image-upload-start" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-            </div>
-          </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -17,13 +18,11 @@ import FusionPanel from './components/FusionPanel';
 import TexturePanel from './components/TexturePanel';
 import ErasePanel from './components/ErasePanel';
 import { UndoIcon, RedoIcon, EyeIcon, BullseyeIcon, DownloadIcon, RefreshIcon, NewFileIcon } from './components/icons';
-import SettingsModal from './components/SettingsModal';
-import HelpModal from './components/HelpModal';
 import StartScreen from './components/StartScreen';
 import PastForwardPage from './components/PastForwardPage';
-import BeatSyncPage from './components/BeatSyncPage';
 import TemplateLibraryPage from './components/TemplateLibraryPage';
 import TemplateDisplayPage from './components/TemplateDisplayPage';
+import BatchResultModal from './components/BatchResultModal';
 
 // Helper to convert a data URL string to a File object
 const dataURLtoFile = (dataurl: string, filename: string): File => {
@@ -107,7 +106,7 @@ type LastAction =
   | { type: 'texture', prompt: string }
   | { type: 'erase' };
 
-export type View = 'editor' | 'past-forward' | 'beatsync' | 'template-library' | 'template-display';
+export type View = 'editor' | 'past-forward' | 'template-library' | 'template-display';
 export type EditorInitialState = { baseImageUrl: string; prompt: string };
 export interface Template {
   id: string;
@@ -136,6 +135,10 @@ const EditorView: React.FC<{
   const [isComparing, setIsComparing] = useState(false);
   const [lastAction, setLastAction] = useState<LastAction | null>(null);
   const [initialAdjustPrompt, setInitialAdjustPrompt] = useState<string | undefined>();
+
+  // Batch Processing State
+  const [batchCandidates, setBatchCandidates] = useState<string[]>([]);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   // Cropping state
   const imgRef = useRef<HTMLImageElement>(null);
@@ -279,6 +282,12 @@ const EditorView: React.FC<{
         setIsLoading(false);
     }
   }
+  
+  const handleBatchSelection = (imageUrl: string) => {
+    handleLocalImageGenerated(imageUrl);
+    setIsBatchModalOpen(false);
+    setBatchCandidates([]);
+  };
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
@@ -340,14 +349,23 @@ const EditorView: React.FC<{
     };
   }, [isLoading, currentImageFile, handleUndo, handleRedo, handleSaveImage]);
 
-  const runGenerativeTask = async (task: () => Promise<string>) => {
+  // Run task N times
+  const runGenerativeTask = async (task: () => Promise<string>, count: number = 1) => {
     setIsLoading(true);
     setError(null);
     setRetouchHotspot(null);
     try {
-      const resultDataUrl = await task();
-      const newFile = dataURLtoFile(resultDataUrl, `edit-${Date.now()}.png`);
-      updateHistory(newFile);
+      if (count === 1) {
+        const resultDataUrl = await task();
+        const newFile = dataURLtoFile(resultDataUrl, `edit-${Date.now()}.png`);
+        updateHistory(newFile);
+      } else {
+        // Run in parallel for batch
+        const tasks = Array.from({ length: count }, () => task());
+        const results = await Promise.all(tasks);
+        setBatchCandidates(results);
+        setIsBatchModalOpen(true);
+      }
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : '发生了未知错误');
@@ -356,29 +374,29 @@ const EditorView: React.FC<{
     }
   };
   
-  const handleApplyFilter = (prompt: string) => {
+  const handleApplyFilter = (prompt: string, count: number = 1) => {
     setLastAction({ type: 'filters', prompt });
-    runGenerativeTask(() => generateFilteredImage(currentImageFile, prompt));
+    runGenerativeTask(() => generateFilteredImage(currentImageFile, prompt), count);
   };
   
-  const handleApplyAdjustment = (prompt: string) => {
+  const handleApplyAdjustment = (prompt: string, count: number = 1) => {
     setLastAction({ type: 'adjust', prompt });
-    runGenerativeTask(() => generateAdjustedImage(currentImageFile, prompt));
+    runGenerativeTask(() => generateAdjustedImage(currentImageFile, prompt), count);
   };
   
-  const handleApplyFusion = (sourceImages: File[], prompt: string) => {
+  const handleApplyFusion = (sourceImages: File[], prompt: string, count: number = 1) => {
     setLastAction({ type: 'fusion', prompt, sourceImages });
-    runGenerativeTask(() => generateFusedImage(currentImageFile, sourceImages, prompt));
+    runGenerativeTask(() => generateFusedImage(currentImageFile, sourceImages, prompt), count);
   };
 
-  const handleApplyTexture = (prompt: string) => {
+  const handleApplyTexture = (prompt: string, count: number = 1) => {
     setLastAction({ type: 'texture', prompt });
-    runGenerativeTask(() => generateTexturedImage(currentImageFile, prompt));
+    runGenerativeTask(() => generateTexturedImage(currentImageFile, prompt), count);
   };
 
   const handleRemoveBackground = () => {
     setLastAction({ type: 'erase' });
-    runGenerativeTask(() => removeBackgroundImage(currentImageFile));
+    runGenerativeTask(() => removeBackgroundImage(currentImageFile), 1);
   };
 
   const handleApplyCrop = async () => {
@@ -418,7 +436,8 @@ const EditorView: React.FC<{
   const handleApplyRetouch = () => {
     if (retouchPrompt && retouchHotspot) {
       setLastAction({ type: 'retouch', prompt: retouchPrompt, hotspot: retouchHotspot });
-      runGenerativeTask(() => generateEditedImage(currentImageFile, retouchPrompt, retouchHotspot));
+      // Retouch is usually specific, keep it single for now unless requested
+      runGenerativeTask(() => generateEditedImage(currentImageFile, retouchPrompt, retouchHotspot!), 1);
       setRetouchPrompt('');
     }
   };
@@ -455,48 +474,28 @@ const EditorView: React.FC<{
       // Set the history index back by one. The `runGenerativeTask` will then
       // overwrite the last state with the new regenerated one.
       setHistoryIndex(historyIndex - 1);
-      runGenerativeTask(task);
+      runGenerativeTask(task, 1); // Regenerate is always single for now
     }
   }, [lastAction, history, historyIndex, isLoading]);
   
+  const ActionButton = ({ onClick, disabled, icon: Icon, label, title }: any) => (
+    <button
+        onClick={onClick}
+        disabled={disabled}
+        className="p-3 glass-button rounded-xl text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed group relative"
+        aria-label={label}
+        title={title}
+    >
+        <Icon className="w-6 h-6" />
+    </button>
+  );
+
   const ActionButtons = () => (
     <>
-      <button
-        onClick={handleStartOver}
-        disabled={isLoading}
-        className="p-3 bg-white/10 rounded-full text-gray-300 hover:bg-white/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
-        aria-label="新图片"
-        title="新图片"
-      >
-        <NewFileIcon className="w-6 h-6" />
-      </button>
-      <button
-        onClick={handleUndo}
-        disabled={historyIndex <= 0 || isLoading}
-        className="p-3 bg-white/10 rounded-full text-gray-300 hover:bg-white/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
-        aria-label="撤销"
-        title="撤销 (Ctrl+Z)"
-      >
-        <UndoIcon className="w-6 h-6" />
-      </button>
-      <button
-        onClick={handleRedo}
-        disabled={historyIndex >= history.length - 1 || isLoading}
-        className="p-3 bg-white/10 rounded-full text-gray-300 hover:bg-white/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
-        aria-label="重做"
-        title="重做 (Ctrl+Y)"
-      >
-        <RedoIcon className="w-6 h-6" />
-      </button>
-       <button
-        onClick={handleRegenerate}
-        disabled={!lastAction || historyIndex < 1 || isLoading}
-        className="p-3 bg-white/10 rounded-full text-gray-300 hover:bg-white/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
-        aria-label="重新生成"
-        title="重新生成"
-      >
-        <RefreshIcon className="w-6 h-6" />
-      </button>
+      <ActionButton onClick={handleStartOver} disabled={isLoading} icon={NewFileIcon} label="新图片" title="新图片" />
+      <ActionButton onClick={handleUndo} disabled={historyIndex <= 0 || isLoading} icon={UndoIcon} label="撤销" title="撤销 (Ctrl+Z)" />
+      <ActionButton onClick={handleRedo} disabled={historyIndex >= history.length - 1 || isLoading} icon={RedoIcon} label="重做" title="重做 (Ctrl+Y)" />
+      <ActionButton onClick={handleRegenerate} disabled={!lastAction || historyIndex < 1 || isLoading} icon={RefreshIcon} label="重新生成" title="重新生成" />
       <button
         onMouseDown={() => setIsComparing(true)}
         onMouseUp={() => setIsComparing(false)}
@@ -504,27 +503,19 @@ const EditorView: React.FC<{
         onTouchStart={() => setIsComparing(true)}
         onTouchEnd={() => setIsComparing(false)}
         disabled={isLoading || history.length < 2}
-        className="p-3 bg-white/10 rounded-full text-gray-300 hover:bg-white/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
+        className="p-3 glass-button rounded-xl text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed group"
         aria-label="按住对比原图"
         title="按住对比原图"
       >
         <EyeIcon className="w-6 h-6" />
       </button>
-      <button
-        onClick={handleSaveImage}
-        disabled={isLoading || !currentImageFile}
-        className="p-3 bg-white/10 rounded-full text-gray-300 hover:bg-white/20 transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed"
-        aria-label="保存图片"
-        title="保存图片 (Ctrl+S)"
-      >
-        <DownloadIcon className="w-6 h-6" />
-      </button>
+      <ActionButton onClick={handleSaveImage} disabled={isLoading || !currentImageFile} icon={DownloadIcon} label="保存图片" title="保存图片 (Ctrl+S)" />
     </>
   );
 
   if (isTemplateLoading) {
     return (
-        <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-fade-in">
+        <div className="w-full h-full flex flex-col items-center justify-center gap-4 animate-fade-in min-h-[60vh]">
             <Spinner className="h-16 w-16 text-blue-400" />
             <p className="mt-4 text-lg text-gray-300 font-semibold">正在加载模板...</p>
         </div>
@@ -534,7 +525,7 @@ const EditorView: React.FC<{
   return (
     <>
       {error && !currentImageFile && (
-        <div className="w-full max-w-4xl mx-auto bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg relative text-center mb-4 animate-fade-in" role="alert">
+        <div className="w-full max-w-4xl mx-auto bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl relative text-center mb-4 animate-fade-in backdrop-blur-sm shadow-lg" role="alert">
           <strong className="font-bold">错误：</strong>
           <span className="block sm:inline ml-2">{error}</span>
         </div>
@@ -547,131 +538,153 @@ const EditorView: React.FC<{
             onShowTemplateLibrary={onShowTemplateLibrary}
         />
       ) : (
-        <div className="w-full max-w-7xl flex flex-col items-center gap-6 animate-fade-in">
+        <div className="w-full max-w-7xl flex flex-col items-center gap-8 animate-fade-in py-4">
           {error && (
-            <div className="w-full max-w-4xl mx-auto bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-lg relative text-center mb-0 animate-fade-in" role="alert">
+            <div className="w-full max-w-4xl mx-auto bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl relative text-center animate-fade-in backdrop-blur-sm shadow-lg" role="alert">
               <strong className="font-bold">错误：</strong>
               <span className="block sm:inline ml-2">{error}</span>
             </div>
            )}
-          <div className="w-full max-w-4xl relative">
-            <div className="bg-black rounded-lg shadow-2xl shadow-blue-500/10 overflow-hidden border border-gray-700">
-                {isLoading && (
-                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 backdrop-blur-sm">
-                    <Spinner className="h-16 w-16 text-blue-400" />
-                    <p className="mt-4 text-lg text-gray-300 font-semibold animate-pulse">AI 正在创作中...</p>
-                  </div>
-                )}
-                
-                {displaySrc ? (
-                  <div className="relative">
-                    <ReactCrop
-                      crop={crop}
-                      onChange={c => setCrop(c)}
-                      onComplete={c => setCompletedCrop(c)}
-                      aspect={aspect}
-                      disabled={isLoading || activeTab !== 'crop'}
-                      ruleOfThirds
-                    >
-                      <img
-                        ref={imgRef}
-                        src={displaySrc}
-                        alt="用户上传的内容"
-                        className={`max-w-full max-h-[65vh] w-auto h-auto mx-auto block transition-opacity duration-300 ${isComparing ? 'opacity-80' : ''}`}
-                        onClick={handleImageClick}
-                        style={{ cursor: activeTab === 'retouch' ? 'crosshair' : 'default' }}
-                      />
-                    </ReactCrop>
-                    {retouchHotspot && !isLoading && activeTab === 'retouch' && (
-                        <div
-                            className="absolute z-10 pointer-events-none"
-                            style={{
-                                left: `calc(${(retouchHotspot.x / (imgRef.current?.naturalWidth ?? 1)) * 100}% - 12px)`,
-                                top: `calc(${(retouchHotspot.y / (imgRef.current?.naturalHeight ?? 1)) * 100}% - 12px)`,
-                            }}
+           
+          {/* Main Editor Area */}
+          <div className="w-full flex flex-col lg:flex-row gap-6 items-start justify-center">
+              
+              {/* Image Canvas */}
+              <div className="w-full max-w-4xl relative flex-shrink-0">
+                <div className="bg-[#0a0b10] rounded-2xl shadow-2xl shadow-black/50 overflow-hidden border border-white/5 relative group">
+                    {isLoading && (
+                      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 backdrop-blur-md">
+                        <Spinner className="h-16 w-16 text-blue-400" />
+                        <p className="mt-4 text-lg text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-bold animate-pulse">AI 正在创作中...</p>
+                      </div>
+                    )}
+                    
+                    {displaySrc ? (
+                      <div className="relative">
+                        <ReactCrop
+                          crop={crop}
+                          onChange={c => setCrop(c)}
+                          onComplete={c => setCompletedCrop(c)}
+                          aspect={aspect}
+                          disabled={isLoading || activeTab !== 'crop'}
+                          ruleOfThirds
+                          className="max-h-[75vh] flex items-center justify-center bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEwIDBoMTB2MTBIMTB6TTAgMTBoMTB2MTBIMHoiIGZpbGw9IiMxMTEyMTYiIGZpbGwtb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]"
                         >
-                            <BullseyeIcon className="w-6 h-6 text-blue-400 drop-shadow-[0_0_3px_rgba(0,0,0,0.7)]" />
+                          <img
+                            ref={imgRef}
+                            src={displaySrc}
+                            alt="用户上传的内容"
+                            className={`max-w-full max-h-[75vh] w-auto h-auto mx-auto block transition-all duration-300 ${isComparing ? 'opacity-80 blur-[0.5px]' : ''}`}
+                            onClick={handleImageClick}
+                            style={{ cursor: activeTab === 'retouch' ? 'crosshair' : 'default' }}
+                          />
+                        </ReactCrop>
+                        {retouchHotspot && !isLoading && activeTab === 'retouch' && (
+                            <div
+                                className="absolute z-10 pointer-events-none"
+                                style={{
+                                    left: `calc(${(retouchHotspot.x / (imgRef.current?.naturalWidth ?? 1)) * 100}% - 12px)`,
+                                    top: `calc(${(retouchHotspot.y / (imgRef.current?.naturalHeight ?? 1)) * 100}% - 12px)`,
+                                }}
+                            >
+                                <div className="relative">
+                                    <BullseyeIcon className="w-6 h-6 text-blue-400 drop-shadow-[0_0_5px_rgba(59,130,246,0.8)]" />
+                                    <div className="absolute inset-0 rounded-full animate-ping bg-blue-400/50"></div>
+                                </div>
+                            </div>
+                        )}
+                      </div>
+                    ) : !isLoading && <div className="h-[65vh] flex items-center justify-center bg-gray-900"><Spinner/></div>}
+                    
+                    {isComparing && (
+                        <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-md border border-white/10 text-white px-3 py-1 rounded-lg text-sm font-semibold z-10 shadow-lg">
+                            正在对比原图
                         </div>
                     )}
-                  </div>
-                ) : !isLoading && <div className="h-[65vh] flex items-center justify-center"><Spinner/></div>}
-                {isComparing && (
-                    <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-md text-sm font-semibold z-10">
-                        正在对比原图
-                    </div>
-                )}
-            </div>
-            
-            <div className="absolute top-1/2 -translate-y-1/2 left-[calc(100%+1rem)] 
-                            flex-col gap-4 p-3 bg-gray-800/50 backdrop-blur-md rounded-2xl border border-gray-700/50
-                            hidden md:flex">
-              <ActionButtons />
-            </div>
-          </div>
+                </div>
+                
+                {/* Floating Action Bar for Desktop */}
+                <div className="absolute top-4 right-4 flex flex-col gap-2 hidden lg:flex">
+                   <ActionButtons />
+                </div>
+                 {/* Action Bar for Mobile */}
+                <div className="flex lg:hidden justify-center items-center gap-2 mt-4 overflow-x-auto pb-2">
+                    <ActionButtons />
+                </div>
+              </div>
+              
+              {/* Controls Panel */}
+              <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+                  {/* Segmented Control Tabs */}
+                <div className="glass-panel p-1.5 rounded-xl flex flex-wrap gap-1 justify-center">
+                  {TABS.map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => { if (!isLoading) { setActiveTab(tab); setRetouchHotspot(null); } }}
+                      className={`flex-1 min-w-[3rem] py-2 px-1 text-xs font-medium rounded-lg transition-all duration-200 focus:outline-none ${
+                        activeTab === tab
+                          ? 'bg-white/10 text-white shadow-sm shadow-black/20 backdrop-blur-sm'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                      disabled={isLoading}
+                    >
+                      {tabNames[tab]}
+                    </button>
+                  ))}
+                </div>
 
-          <div className="flex md:hidden justify-center items-center gap-4">
-              <ActionButtons />
-          </div>
-          
-          <div className="w-full max-w-4xl">
-            <div className="flex justify-center border-b border-gray-700 mb-4 overflow-x-auto">
-              {TABS.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => { if (!isLoading) { setActiveTab(tab); setRetouchHotspot(null); } }}
-                  className={`px-4 md:px-6 py-3 text-lg font-semibold border-b-2 transition-colors duration-200 ease-in-out focus:outline-none disabled:cursor-not-allowed whitespace-nowrap ${
-                    activeTab === tab
-                      ? 'border-blue-500 text-blue-400'
-                      : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
-                  }`}
-                  disabled={isLoading}
-                >
-                  {tabNames[tab]}
-                </button>
-              ))}
-            </div>
-
-            <div className="w-full">
-              {activeTab === 'retouch' && (
-                  <div className="w-full bg-gray-800/50 border border-gray-700 rounded-lg p-4 flex flex-col items-center gap-4 animate-fade-in backdrop-blur-sm">
-                      <h3 className="text-lg font-semibold text-gray-300">智能修饰</h3>
-                      <p className="text-sm text-gray-400 -mt-2">在图像上点击一个点，然后描述您想做的更改。</p>
-                      <div className="w-full flex gap-2">
-                         <input
-                              type="text"
-                              value={retouchPrompt}
-                              onChange={(e) => setRetouchPrompt(e.target.value)}
-                              placeholder="例如，“移除这个物体”或“把衬衫改成红色”"
-                              className="flex-grow bg-gray-800 border border-gray-600 text-gray-200 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 focus:outline-none transition w-full disabled:cursor-not-allowed disabled:opacity-60 text-base"
-                              disabled={isLoading}
-                          />
-                          <button
-                              onClick={handleApplyRetouch}
-                              className="bg-gradient-to-br from-blue-600 to-blue-500 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/40 hover:translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-blue-800 disabled:to-blue-700 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
-                              disabled={isLoading || !retouchPrompt.trim() || !retouchHotspot}
-                          >
-                              应用
-                          </button>
+                <div className="w-full">
+                  {activeTab === 'retouch' && (
+                      <div className="glass-panel rounded-xl p-5 flex flex-col gap-4 animate-fade-in">
+                          <div className="flex items-center gap-2 text-gray-300">
+                              <BullseyeIcon className="w-5 h-5 text-blue-400" />
+                              <h3 className="font-semibold">智能修饰</h3>
+                          </div>
+                          <p className="text-xs text-gray-400">1. 点击图片上的区域<br/>2. 描述修改内容</p>
+                          <div className="space-y-3">
+                             <input
+                                  type="text"
+                                  value={retouchPrompt}
+                                  onChange={(e) => setRetouchPrompt(e.target.value)}
+                                  placeholder="例如：“移除这个”或“改成红色”"
+                                  className="input-modern w-full text-sm"
+                                  disabled={isLoading}
+                              />
+                              <button
+                                  onClick={handleApplyRetouch}
+                                  className="w-full btn-primary py-3 rounded-xl text-sm"
+                                  disabled={isLoading || !retouchPrompt.trim() || !retouchHotspot}
+                              >
+                                  应用
+                              </button>
+                          </div>
                       </div>
-                  </div>
-              )}
-              {activeTab === 'adjust' && <AdjustmentPanel onApplyAdjustment={handleApplyAdjustment} isLoading={isLoading} currentImage={currentImageFile} onError={setError} initialPrompt={initialAdjustPrompt} />}
-              {activeTab === 'filters' && <FilterPanel onApplyFilter={handleApplyFilter} isLoading={isLoading} currentImage={currentImageFile} onError={setError} />}
-              {activeTab === 'texture' && <TexturePanel onApplyTexture={handleApplyTexture} isLoading={isLoading} currentImage={currentImageFile} onError={setError} />}
-              {activeTab === 'erase' && <ErasePanel onRemoveBackground={handleRemoveBackground} isLoading={isLoading} />}
-              {activeTab === 'crop' && (
-                <CropPanel
-                  onApplyCrop={handleApplyCrop}
-                  onSetAspect={setAspect}
-                  isLoading={isLoading}
-                  isCropping={!!completedCrop?.width && !!completedCrop?.height}
-                />
-              )}
-              {activeTab === 'fusion' && <FusionPanel onApplyFusion={handleApplyFusion} isLoading={isLoading} onError={setError} />}
-            </div>
+                  )}
+                  {activeTab === 'adjust' && <AdjustmentPanel onApplyAdjustment={handleApplyAdjustment} isLoading={isLoading} currentImage={currentImageFile} onError={setError} initialPrompt={initialAdjustPrompt} />}
+                  {activeTab === 'filters' && <FilterPanel onApplyFilter={handleApplyFilter} isLoading={isLoading} currentImage={currentImageFile} onError={setError} />}
+                  {activeTab === 'texture' && <TexturePanel onApplyTexture={handleApplyTexture} isLoading={isLoading} currentImage={currentImageFile} onError={setError} />}
+                  {activeTab === 'erase' && <ErasePanel onRemoveBackground={handleRemoveBackground} isLoading={isLoading} />}
+                  {activeTab === 'crop' && (
+                    <CropPanel
+                      onApplyCrop={handleApplyCrop}
+                      onSetAspect={setAspect}
+                      isLoading={isLoading}
+                      isCropping={!!completedCrop?.width && !!completedCrop?.height}
+                    />
+                  )}
+                  {activeTab === 'fusion' && <FusionPanel onApplyFusion={handleApplyFusion} isLoading={isLoading} onError={setError} />}
+                </div>
+              </div>
+
           </div>
         </div>
       )}
+      <BatchResultModal
+        isOpen={isBatchModalOpen}
+        images={batchCandidates}
+        onSelect={handleBatchSelection}
+        onClose={() => setIsBatchModalOpen(false)}
+      />
     </>
   );
 }
@@ -679,11 +692,36 @@ const EditorView: React.FC<{
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('editor');
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [editorInitialState, setEditorInitialState] = useState<EditorInitialState | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+
+  // Load settings from URL parameters on app mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlKey = urlParams.get('key');
+    const urlServer = urlParams.get('server');
+
+    if (urlKey || urlServer) {
+      if (urlKey) {
+        console.log('Importing API key from URL:', urlKey);
+        localStorage.setItem('gemini-api-key', urlKey);
+      }
+      if (urlServer) {
+        console.log('Importing server URL from URL:', urlServer);
+        localStorage.setItem('gemini-base-url', urlServer);
+      }
+
+      // Clean up URL parameters after importing
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+
+      console.log('Settings imported successfully. Saved values:', {
+        key: localStorage.getItem('gemini-api-key'),
+        server: localStorage.getItem('gemini-base-url')
+      });
+    }
+  }, []);
 
   const handleTemplateSelect = (template: Template) => {
     setSelectedTemplate(template);
@@ -704,7 +742,7 @@ const App: React.FC = () => {
     setActiveView('editor');
   };
   
-  // Dummy handlers to satisfy the EditorView props, as its internal state is now self-contained.
+  // Dummy handlers to satisfy the EditorView props
   const handleFileSelect = () => {};
   const handleImageGenerated = () => {};
 
@@ -712,7 +750,7 @@ const App: React.FC = () => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 3000); // 3 seconds
+      }, 3000); 
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -720,7 +758,6 @@ const App: React.FC = () => {
   const MainContent: React.FC = () => {
     switch (activeView) {
         case 'past-forward': return <PastForwardPage />;
-        case 'beatsync': return <BeatSyncPage />;
         case 'template-library': return <TemplateLibraryPage onTemplateSelect={handleTemplateSelect} />;
         case 'template-display': 
             return selectedTemplate ? (
@@ -748,41 +785,30 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-900 text-white">
-      <Header 
-        activeView={activeView} 
+    <div className="flex flex-col min-h-screen font-sans text-gray-100 selection:bg-blue-500/30 selection:text-blue-100">
+      <Header
+        activeView={activeView}
         onViewChange={(view) => {
-            // Reset template state if user navigates away
             if (view !== 'editor' && view !== 'template-display') {
                 setEditorInitialState(null);
                 setSelectedTemplate(null);
             }
             setActiveView(view)
-        }} 
-        onOpenSettings={() => setIsSettingsModalOpen(true)}
-        onOpenHelp={() => setIsHelpModalOpen(true)}
+        }}
       />
-      <main className="flex-1 flex flex-col items-center justify-center p-4 md:p-8">
+      <main className="flex-1 flex flex-col items-center p-4 relative z-10">
         <MainContent />
       </main>
-      <SettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        onSave={() => setNotification("设置已成功保存！")}
-      />
-      <HelpModal
-        isOpen={isHelpModalOpen}
-        onClose={() => setIsHelpModalOpen(false)}
-      />
       <AnimatePresence>
         {notification && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.3 }}
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-            className="fixed bottom-6 right-6 z-50 bg-green-500/90 text-white px-5 py-3 rounded-lg shadow-2xl backdrop-blur-sm"
+            className="fixed bottom-6 right-6 z-50 bg-green-500/90 text-white px-6 py-4 rounded-xl shadow-2xl backdrop-blur-md border border-green-400/30 flex items-center gap-3"
           >
+             <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
             <p className="font-semibold">{notification}</p>
           </motion.div>
         )}

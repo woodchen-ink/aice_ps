@@ -4,17 +4,17 @@ Aice PS 是一款功能强大的网页版 AI 照片编辑器，利用 Google ais
 
 ![Aice PS 界面截图](public/images/show.jpg)
 
-## 注意，调用 gemini api key 是需要收费的。但直接调用环境变量中的api是免费的。[推荐可大方使用的极具性价比API平台 0.03x元一张](https://nb.kuai.host/)
+## 注意，调用 gemini api key 是需要收费的。但直接调用环境变量中的api是免费的。[推荐可大方使用的极具性价比API平台 2分钱一张，高清1毛2](https://nb2.kuai.host/)
 
 ### [AiStudio 【NanoBanana APP】](https://ai.studio/apps/drive/1JSVTWc7Pe1GfLLrQcBWPZF_yH_80xUGg) 
 
 > 登录了google aistudio 的可以直接打开上面 app 使用。完全免费
 
-### [【低价实用稳定用香蕉】https://nb.kuai.host/](https://nb.kuai.host/)
+### [【可自部署版本 DEMO】https://nb2.kuai.host/](https://nb2.kuai.host/)
 
 > #### 自部署版本，国内可直接用，已经配套了超值的香蕉API，推荐使用。
 
-> #### 请大家谨慎使用自己的gemini api key。
+> #### 请大家谨慎使用自己的gemini api key。[推荐可大方使用的极具性价比API平台](https://cnb.build/no.1/api/-/issues/2)
 
  [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)  [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11) 
 
@@ -38,32 +38,68 @@ Aice PS 结合了多种尖端 AI 能力，为您提供一站式的创意图片�
 
 ## 🛠️ 技术栈
 
-- **前端**: React 19 (通过 esm.sh 加载，无构建步骤)
+- **前端**: React 19
 - **语言**: TypeScript
-- **AI 模型**: Google Gemini API (`gemini-2.5-flash-image-preview`, `imagen-4.0-generate-001`, `gemini-2.5-flash`)
-- **样式**: Tailwind CSS (通过 CDN)
-- **组件库**: `react-image-crop`
+- **AI 模型**: Google Gemini API (`gemini-2.5-flash-image`, `imagen-4.0-generate-001`, `gemini-2.5-flash`)
+- **样式**: Tailwind CSS
+- **组件库**: `react-image-crop`, `framer-motion`
+- **部署**: Docker & Nginx
+
+## 🐳 Docker 部署
+
+您可以使用 Docker 轻松部署 Aice PS。
+
+### 1. 构建镜像
+
+```bash
+docker build -t aice-ps .
+```
+
+### 2. 运行容器
+
+您可以直接运行容器，并通过环境变量传入 API 密钥（可选）。
+
+```bash
+docker run -d -p 8080:80 --name aice-ps \
+  -e API_KEY="your_gemini_api_key" \
+  -e API_BASE_URL="https://your-custom-api-endpoint" \
+  aice-ps
+```
+
+或者使用 `docker-compose`：
+
+1. 创建 `.env` 文件并设置环境变量：
+   ```
+   API_KEY=your_gemini_api_key
+   API_BASE_URL=https://your-custom-api-endpoint
+   ```
+2. 启动服务：
+   ```bash
+   docker-compose up -d
+   ```
+
+访问 `http://localhost:8080` 即可使用。
 
 ## 🎨 核心 AI 模型介绍
 
 Aice PS 的强大功能由 Google 最先进的一系列生成式 AI 模型驱动，每个模型都在特定任务中发挥着关键作用。
 
-### Gemini 2.5 Flash Image (`gemini-2.5-flash-image-preview`)
+### Gemini 2.5 Flash Image (`gemini-2.5-flash-image`)
 
 这款模型是 Aice PS 所有核心**图像编辑功能**的引擎，也被称为 "Nano Banana"。它不仅仅是一个图像生成器，更是一个上下文编辑器，能够深度理解图像内容并根据自然语言指令进行精确操作。
 
 其主要优势包括：
 
--   **高级推理与上下文理解**: 模型能像人类一样“思考”用户的编辑意图。例如，当要求“将一个在烤箱里烤了4天的千层面”可视化时，它会生成一个烧焦的、冒着烟的千层面，而不是一个完美的成品，展现了其卓越的逻辑推理能力。
--   **卓越的角色与场景一致性**: 在进行多次编辑或生成系列图片时，能够保持主体角色和场景风格的高度一致性。这对于故事叙述、视频镜头生成或品牌资产设计至关重要。
--   **精确的局部编辑**: 用户可以在图像上指定一个点，然后用自然语言描述修改内容（例如，“移除这个人”或“给这件衬衫添加条纹”），模型会进行无缝、逼真的修改，同时保持图像其他部分不变。
--   **文本与细节处理**: 能够识别并修改图像中的文字，例如更改报纸标题或产品标签，同时保持原始字体和风格。它还能修复旧照片、消除运动模糊，并保留关键细节。
--   **多图像融合**: 模型可以理解并融合多张输入图片，例如将一个物体放入新场景，或将一个房间的风格替换为另一张图的纹理。
+-   **高级推理与上下文理解**: 模型能像人类一样“思考”用户的编辑意图。
+-   **卓越的角色与场景一致性**: 在进行多次编辑或生成系列图片时，能够保持主体角色和场景风格的高度一致性。
+-   **精确的局部编辑**: 用户可以在图像上指定一个点，然后用自然语言描述修改内容。
+-   **文本与细节处理**: 能够识别并修改图像中的文字，同时保持原始字体和风格。
+-   **多图像融合**: 模型可以理解并融合多张输入图片。
 
 ## ⚠️ API 密钥使用说明
 请注意，如果您在设置中提供了自己的 Google Gemini API 密钥，通过该密钥进行的 API 调用将会**产生费用**。如果将设置留空，应用会尝试使用部署时在环境变量中配置的 API 密钥（该密钥可能是免费的，也可能是您自己付费的）。请根据您的使用情况谨慎配置。
 
-### TODO
+### 待办事项
 - [x] Google Aistudio APP，相对完善且好用的可免费使用Nano Banana的APP
 - [x] 支持多图融合
 - [x] 一张图片生成年轻及年老时的一整套图片出来 (Past Forward)
@@ -74,6 +110,7 @@ Aice PS 的强大功能由 Google 最先进的一系列生成式 AI 模型驱动
 - [x] 重新支持Gemini API，大家也可以自行部署并使用兼容gemini api的API来使用。[推荐可大方使用的极具性价比API平台，源头价格更低](https://cnb.build/no.1/api/-/issues/2)
 - [x] 修正图片上传限制过小的问题
 - [x] 3图融合升级为4图融合。
+- [x] Docker 部署支持。
 - [] 持续增加提示词模板中(进行中)
 - [] 芝士香蕉功能-计划中
 - [] 接入 第三方平台API

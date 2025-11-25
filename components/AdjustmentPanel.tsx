@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7,9 +8,10 @@ import React, { useState, useEffect } from 'react';
 import { generateCreativeSuggestions } from '../services/geminiService';
 import { SparkleIcon, ChevronDownIcon } from './icons';
 import Spinner from './Spinner';
+import BatchSelector from './BatchSelector';
 
 interface AdjustmentPanelProps {
-  onApplyAdjustment: (prompt: string) => void;
+  onApplyAdjustment: (prompt: string, count: number) => void;
   isLoading: boolean;
   currentImage: File;
   onError: (message: string) => void;
@@ -24,6 +26,7 @@ const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, is
   const [aiPresets, setAiPresets] = useState<Preset[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isPresetsVisible, setIsPresetsVisible] = useState(true);
+  const [batchCount, setBatchCount] = useState(1);
   
   useEffect(() => {
     if (initialPrompt) {
@@ -53,7 +56,7 @@ const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, is
 
   const handleApply = () => {
     if (activePrompt) {
-      onApplyAdjustment(activePrompt);
+      onApplyAdjustment(activePrompt, batchCount);
     }
   };
 
@@ -161,10 +164,11 @@ const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onApplyAdjustment, is
       />
 
       {activePrompt && (
-        <div className="animate-fade-in flex flex-col gap-4">
+        <div className="animate-fade-in flex gap-3">
+            <BatchSelector count={batchCount} onChange={setBatchCount} disabled={isLoading} max={4} />
             <button
                 onClick={handleApply}
-                className="w-full bg-gradient-to-br from-blue-600 to-blue-500 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-blue-800 disabled:to-blue-700 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
+                className="flex-1 bg-gradient-to-br from-blue-600 to-blue-500 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-blue-800 disabled:to-blue-700 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
                 disabled={isLoading || !activePrompt.trim()}
             >
                 应用调整

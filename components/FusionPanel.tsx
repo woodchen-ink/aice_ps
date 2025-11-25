@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -5,9 +6,10 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { UploadIcon, XMarkIcon } from './icons';
+import BatchSelector from './BatchSelector';
 
 interface FusionPanelProps {
-  onApplyFusion: (sourceImages: File[], prompt: string) => void;
+  onApplyFusion: (sourceImages: File[], prompt: string, count: number) => void;
   isLoading: boolean;
   onError: (message: string) => void;
 }
@@ -20,6 +22,7 @@ const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onE
   const [sourceImageFile2, setSourceImageFile2] = useState<File | null>(null);
   const [sourceImageFile3, setSourceImageFile3] = useState<File | null>(null);
   const [prompt, setPrompt] = useState('');
+  const [batchCount, setBatchCount] = useState(1);
   
   const fileInputRef1 = useRef<HTMLInputElement>(null);
   const fileInputRef2 = useRef<HTMLInputElement>(null);
@@ -28,7 +31,7 @@ const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onE
   const handleApply = () => {
     const sourceFiles = [sourceImageFile1, sourceImageFile2, sourceImageFile3].filter(Boolean) as File[];
     if (sourceFiles.length > 0 && prompt.trim()) {
-        onApplyFusion(sourceFiles, prompt);
+        onApplyFusion(sourceFiles, prompt, batchCount);
     }
   };
 
@@ -125,9 +128,13 @@ const FusionPanel: React.FC<FusionPanelProps> = ({ onApplyFusion, isLoading, onE
           className="flex-grow bg-gray-800 border border-gray-600 text-gray-200 rounded-lg p-4 focus:ring-2 focus:ring-blue-500 focus:outline-none transition w-full disabled:cursor-not-allowed disabled:opacity-60 text-base"
           disabled={isLoading || (!sourceImageFile1 && !sourceImageFile2 && !sourceImageFile3)}
         />
+      </div>
+      
+      <div className="w-full flex gap-2">
+        <BatchSelector count={batchCount} onChange={setBatchCount} disabled={isLoading} max={4} />
         <button
           onClick={handleApply}
-          className="bg-gradient-to-br from-purple-600 to-purple-500 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-purple-800 disabled:to-purple-700 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
+          className="flex-1 bg-gradient-to-br from-purple-600 to-purple-500 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-purple-800 disabled:to-purple-700 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
           disabled={isLoading || !prompt.trim() || (!sourceImageFile1 && !sourceImageFile2 && !sourceImageFile3)}
         >
           应用合成

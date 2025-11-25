@@ -1,96 +1,91 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 import React from 'react';
-import { SparkleIcon, GitHubIcon, ClockIcon, FilmIcon, CogIcon, QuestionMarkCircleIcon, TemplateLibraryIcon } from './icons';
+import { SparkleIcon, ClockIcon, TemplateLibraryIcon } from './icons';
 import { type View } from '../App';
+import { motion } from 'framer-motion';
 
 interface HeaderProps {
   activeView: View;
   onViewChange: (view: View) => void;
-  onOpenSettings: () => void;
-  onOpenHelp: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ activeView, onViewChange, onOpenSettings, onOpenHelp }) => {
+const NavItem: React.FC<{ 
+    view: View; 
+    current: View; 
+    onClick: () => void; 
+    icon: React.ReactNode; 
+    label: string;
+    fontClass?: string;
+    colorClass: string;
+}> = ({ view, current, onClick, icon, label, fontClass = "", colorClass }) => {
+    const isActive = current === view;
+    
+    return (
+        <button 
+            onClick={onClick} 
+            className={`relative px-4 py-2 rounded-full flex items-center gap-2 transition-all duration-300 group ${isActive ? 'text-white' : 'text-gray-400 hover:text-gray-200'}`}
+        >
+            {isActive && (
+                <motion.div
+                    layoutId="nav-pill"
+                    className="absolute inset-0 bg-white/10 border border-white/5 rounded-full backdrop-blur-sm"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                />
+            )}
+            <span className={`relative z-10 ${isActive ? colorClass : 'group-hover:text-white transition-colors'}`}>
+                {icon}
+            </span>
+            <span className={`relative z-10 text-sm font-semibold ${fontClass}`}>
+                {label}
+            </span>
+        </button>
+    );
+};
+
+const Header: React.FC<HeaderProps> = ({ activeView, onViewChange }) => {
   return (
-    <header className="w-full py-4 px-4 sm:px-8 border-b border-gray-700 bg-gray-800/30 backdrop-blur-sm sticky top-0 z-50">
-      <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-              <button onClick={() => onViewChange('editor')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'editor' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
-                <SparkleIcon className="w-6 h-6 text-blue-400" />
-                <h1 className="text-xl font-bold tracking-tight">
-                  Aice PS
-                </h1>
-              </button>
+    <div className="sticky top-4 z-50 w-full px-4 flex justify-center">
+        <header className="w-full max-w-6xl glass-panel rounded-full px-4 py-3 flex items-center justify-center relative overflow-hidden">
+            {/* Subtle Gradient Glow behind header */}
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 blur-xl opacity-50 pointer-events-none"></div>
 
-              <div className="h-6 w-px bg-gray-600"></div>
+            {/* Navigation */}
+            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+                <NavItem
+                    view="editor"
+                    current={activeView}
+                    onClick={() => onViewChange('editor')}
+                    icon={<SparkleIcon className="w-5 h-5" />}
+                    label="AI 图像编辑器"
+                    colorClass="text-blue-400"
+                />
 
-              <button onClick={() => onViewChange('past-forward')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'past-forward' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
-                <ClockIcon className="w-6 h-6 text-yellow-400" />
-                <h1 className="text-xl font-bold tracking-tight font-['Caveat']">
-                  Past Forward
-                </h1>
-              </button>
+                <NavItem
+                    view="past-forward"
+                    current={activeView}
+                    onClick={() => onViewChange('past-forward')}
+                    icon={<ClockIcon className="w-5 h-5" />}
+                    label="时空穿越"
+                    fontClass="font-['Caveat'] text-lg"
+                    colorClass="text-yellow-400"
+                />
 
-              <div className="h-6 w-px bg-gray-600"></div>
-
-              <button onClick={() => onViewChange('beatsync')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'beatsync' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
-                <FilmIcon className="w-6 h-6 text-purple-400" />
-                <h1 className="text-xl font-bold tracking-tight">
-                  音画志
-                </h1>
-              </button>
-              
-              <div className="h-6 w-px bg-gray-600"></div>
-
-              <button onClick={() => onViewChange('template-library')} className={`flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg ${activeView === 'template-library' ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}>
-                <TemplateLibraryIcon className="w-6 h-6 text-green-400" />
-                <h1 className="text-xl font-bold tracking-tight font-['Permanent_Marker']">
-                  NB 提示词库
-                </h1>
-              </button>
-
-              <div className="h-6 w-px bg-gray-600"></div>
-              
-              <a href="https://youtu.be/ZxjiZKnvjt4" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 transition-colors p-2 -m-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10">
-                <h1 className="text-xl font-bold tracking-tight">
-                  【2分钱每张】国内可用超值API
-                </h1>
-              </a>
-
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onOpenHelp}
-              className="p-2 text-gray-400 rounded-full hover:bg-white/10 hover:text-white transition-colors"
-              aria-label="帮助"
-              title="帮助"
-            >
-              <QuestionMarkCircleIcon className="w-6 h-6" />
-            </button>
-            <button
-              onClick={onOpenSettings}
-              className="p-2 text-gray-400 rounded-full hover:bg-white/10 hover:text-white transition-colors"
-              aria-label="API 设置"
-              title="API 设置"
-            >
-              <CogIcon className="w-6 h-6" />
-            </button>
-            <a
-              href="https://github.com/aigem/aice_ps"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 text-gray-400 rounded-full hover:bg-white/10 hover:text-white transition-colors"
-              aria-label="GitHub Repository"
-              title="GitHub Repository"
-            >
-              <GitHubIcon className="w-6 h-6" />
-            </a>
-          </div>
-      </div>
-    </header>
+                <NavItem
+                    view="template-library"
+                    current={activeView}
+                    onClick={() => onViewChange('template-library')}
+                    icon={<TemplateLibraryIcon className="w-5 h-5" />}
+                    label="提示词库"
+                    fontClass="font-['Permanent_Marker'] tracking-wider"
+                    colorClass="text-green-400"
+                />
+            </div>
+        </header>
+    </div>
   );
 };
 

@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -11,7 +12,7 @@ let lastUsedBaseUrl: string | undefined | null = null;
 
 // Function to get the current API key
 const getApiKey = (): string | null => {
-    // Prioritize user-provided key from localStorage
+    // Get user-provided key from localStorage
     try {
       const userApiKey = localStorage.getItem('gemini-api-key');
       if (userApiKey && userApiKey.trim() !== '') {
@@ -20,8 +21,8 @@ const getApiKey = (): string | null => {
     } catch(e) {
       console.warn("Could not access localStorage for API key.", e);
     }
-    // Fallback to the system-level environment variable
-    return process.env.API_KEY || null;
+    // No API key available
+    return null;
 }
 
 // Function to get the current API Base URL
@@ -29,12 +30,19 @@ const getBaseUrl = (): string | undefined => {
     try {
         const userBaseUrl = localStorage.getItem('gemini-base-url');
         if (userBaseUrl && userBaseUrl.trim() !== '') {
-            return userBaseUrl.trim();
+            let url = userBaseUrl.trim();
+            // Remove trailing slash if present to prevent double slashes in SDK
+            if (url.endsWith('/')) {
+                url = url.slice(0, -1);
+            }
+            return url;
         }
     } catch(e) {
       console.warn("Could not access localStorage for API base URL.", e);
     }
-    return undefined; // Return undefined to use the default endpoint
+
+    // No base URL configured
+    return undefined;
 }
 
 
@@ -42,16 +50,19 @@ const getBaseUrl = (): string | undefined => {
 const getGoogleAI = (): GoogleGenAI => {
     const apiKey = getApiKey();
     if (!apiKey) {
-        throw new Error("找不到 API 密钥。请在设置中输入您的密钥，或确保系统 API 密钥已在环境中正确设置。");
+        throw new Error("找不到 API 密钥。请通过 URL 参数（?server=xxx&key=xxx）配置您的 API 设置。");
     }
     const baseUrl = getBaseUrl();
     
     // Re-initialize if the API key or base URL has changed, or if there's no instance
     if (!aiInstance || apiKey !== lastUsedApiKey || baseUrl !== lastUsedBaseUrl) {
       try {
-        const config: { apiKey: string, apiEndpoint?: string } = { apiKey };
+        const config: any = { apiKey };
         if (baseUrl) {
-            config.apiEndpoint = baseUrl;
+            // The @google/genai SDK uses httpOptions.baseUrl to override the endpoint
+            config.httpOptions = {
+                baseUrl: baseUrl
+            };
         }
         aiInstance = new GoogleGenAI(config);
         lastUsedApiKey = apiKey;
@@ -70,21 +81,33 @@ const getGoogleAI = (): GoogleGenAI => {
 
 const handleApiError = (error: any, action: string): Error => {
     console.error(`API call for "${action}" failed:`, error);
-    // Attempt to parse a meaningful message from the error object or string
+    const baseUrl = getBaseUrl();
+    
+    // Start with the raw error message if available
     let message = `在“${action}”期间发生错误: ${error.message || '未知通信错误'}`;
+
+    // Try to parse a detailed error message from a JSON response
     try {
-      // Errors from the backend might be JSON strings
       const errorObj = JSON.parse(error.message);
       if (errorObj?.error?.message) {
-         // Use the specific message from the API if available
          message = `在“${action}”期间发生错误: ${errorObj.error.message}`;
       }
     } catch(e) {
-      // It's not a JSON string, use the original message
-      if (String(error.message).includes('API key not valid')) {
-          message = 'API 密钥无效。请检查您在设置中输入的密钥。';
-      } else if (String(error.message).includes('xhr error')) {
-           message = `与 AI 服务的通信失败。这可能是由网络问题或无效的 API 密钥引起的。`;
+      // If parsing fails, it's not JSON. Inspect the raw string for common issues.
+      const errorMessage = String(error.message).toLowerCase();
+
+      if (errorMessage.includes('api key not valid')) {
+          if (baseUrl) {
+              // When a custom URL is used, the key format can vary (e.g., 'sk-...').
+              // The error is from the custom endpoint, so we provide a more general message.
+              message = `API 请求失败。请检查您的 API 密钥和 Base URL 是否正确，并确保您的服务端点运行正常。`;
+          } else {
+              // When using the default Google endpoint, this error implies a standard Gemini key issue.
+              message = 'API 密钥无效。请检查您在设置中输入的密钥。官方 Gemini API 密钥通常以 `AIzaSy...` 开头。';
+          }
+      } else if (errorMessage.includes('xhr error') || errorMessage.includes('failed to fetch')) {
+           // General network or connectivity error.
+           message = `与 AI 服务的通信失败。请检查您的网络连接、API 密钥和 Base URL 设置。`;
       }
     }
 
@@ -188,7 +211,7 @@ const callImageEditingModel = async (parts: any[], action: string): Promise<stri
     try {
         const ai = getGoogleAI();
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image-preview',
+            model: 'gemini-2.5-flash-image',
             contents: { parts: parts },
             config: {
                 responseModalities: [Modality.IMAGE, Modality.TEXT],
@@ -233,24 +256,44 @@ const callImageEditingModel = async (parts: any[], action: string): Promise<stri
     }
 }
 
-export const generateImageFromText = async (prompt: string, aspectRatio: string): Promise<string> => {
+export const generateImageFromText = async (prompt: string, aspectRatio: string, imageCount: number = 1): Promise<string[]> => {
     try {
         const ai = getGoogleAI();
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt,
-            config: {
-                numberOfImages: 1,
-                outputMimeType: 'image/png',
-                aspectRatio: aspectRatio as "1:1" | "16:9" | "9:16" | "4:3" | "3:4",
-            },
-        });
 
-        if (response.generatedImages && response.generatedImages.length > 0) {
-            const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-            return `data:image/png;base64,${base64ImageBytes}`;
+        // Generate multiple images if requested
+        const results: string[] = [];
+        for (let i = 0; i < imageCount; i++) {
+            const response: GenerateContentResponse = await ai.models.generateContent({
+                model: 'gemini-3-pro-image-preview',
+                contents: {
+                    parts: [{
+                        text: `Generate an image with aspect ratio ${aspectRatio}: ${prompt}`
+                    }]
+                },
+                config: {
+                    responseModalities: [Modality.IMAGE],
+                },
+            });
+
+            const candidate = response.candidates?.[0];
+            if (!candidate || !candidate.content || !candidate.content.parts) {
+                throw new Error('AI 未能生成图片。');
+            }
+
+            // Extract image from response
+            for (const part of candidate.content.parts) {
+                if (part.inlineData) {
+                    results.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+                    break;
+                }
+            }
         }
-        throw new Error('AI 未能生成图片。');
+
+        if (results.length === 0) {
+            throw new Error('AI 未能生成图片。');
+        }
+
+        return results;
     } catch (e) {
         throw handleApiError(e, '生成图片');
     }
@@ -362,7 +405,7 @@ export const generateCreativeSuggestions = async (imageFile: File, type: 'filter
         const textPart = { text: textPrompt };
 
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-flash-latest",
             contents: { parts: [ imagePart, textPart ]},
             config: {
                 responseMimeType: "application/json",

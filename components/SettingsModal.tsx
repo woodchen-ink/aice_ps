@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -55,14 +56,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
           <XMarkIcon className="w-6 h-6" />
         </button>
 
-        <h2 className="text-2xl font-bold mb-4">API 设置</h2>
-        
-        <div className="text-yellow-300/80 bg-yellow-900/20 border border-yellow-700/50 p-3 rounded-lg text-sm mb-4">
-          <b>请注意：</b>使用您自己的 Google Gemini API 密钥将会产生费用。如果留空，应用将尝试使用系统配置的免费 API。
-        </div>
-        <div className="text-cyan-300/80 bg-cyan-900/20 border border-cyan-700/50 p-3 rounded-lg text-sm mb-6">
-            <b>通知：</b>我们提供高性价比且稳定的 Nano Banana 图片生成 API，详情请访问 <a href="https://cnb.build/no.1/api/-/issues/2" target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-cyan-200">极具性价比API平台</a>。
-        </div>
+        <h2 className="text-2xl font-bold mb-6">API 设置</h2>
 
         <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
@@ -80,6 +74,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
                     placeholder="在此处粘贴您的 API 密钥"
                     className="bg-gray-900 border border-gray-600 text-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
                 />
+                <p className="text-xs text-gray-400 mt-1 px-1">提示：官方 Gemini API 密钥通常以 `AIzaSy...` 开头。如果您使用自定义 Base URL 或代理服务（例如，需要 `sk-...` 格式密钥的服务），密钥格式可能会有所不同。本应用将直接使用您提供的设置。</p>
             </div>
             
             <div className="flex flex-col gap-2">
@@ -97,6 +92,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, onSave }
                     placeholder="例如: https://apis.kuai.host/"
                     className="bg-gray-900 border border-gray-600 text-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
                 />
+                 <p className="text-xs text-gray-400 mt-1 px-1">
+                    用于指定 API 的根地址。如果不填，默认使用 Google 官方地址。请填写完整的 URL，例如 <code>https://your-proxy.com</code> (无需包含 /v1beta 等版本号)。
+                </p>
             </div>
         </div>
 

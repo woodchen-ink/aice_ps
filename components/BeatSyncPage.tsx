@@ -453,11 +453,13 @@ const BeatSyncPage: React.FC = () => {
     useEffect(() => {
         if (appState !== 'generating-images' || Object.values(generatedImages).length === 0) return;
         
+        // FIX: Cast Object.values to the correct type to aid TypeScript inference.
         const allDone = Object.values(generatedImages).length === imageCount && 
-                        Object.values(generatedImages).every(img => img.status !== 'pending');
+                        (Object.values(generatedImages) as GeneratedImage[]).every(img => img.status !== 'pending');
         
         if (allDone) {
-            const successfulImages = Object.values(generatedImages).filter(img => img.status === 'done' && img.url);
+            // FIX: Cast Object.values to the correct type to aid TypeScript inference.
+            const successfulImages = (Object.values(generatedImages) as GeneratedImage[]).filter(img => img.status === 'done' && img.url);
             if (successfulImages.length === 0) {
                 setError("所有图片生成失败，请重试。");
                 setAppState('error');
@@ -465,15 +467,17 @@ const BeatSyncPage: React.FC = () => {
                  if (successfulImages.length < imageCount) {
                      setNotification('部分图片生成失败，但我们将用成功的图片创建视频。');
                  }
+                 // FIX: Correctly access the 'url' property on the typed 'img' object. The filter above ensures it's a string.
                  createVideo(successfulImages.map(img => img.url!));
             }
         }
     }, [generatedImages, appState, imageCount, createVideo]);
 
     const handleRegenerateVideo = useCallback(() => {
-        const successfulImages = Object.values(generatedImages)
+        // FIX: Cast Object.values to the correct type and map to url property.
+        const successfulImages = (Object.values(generatedImages) as GeneratedImage[])
             .filter(img => img.status === 'done' && img.url)
-            .map(img => img.url!);
+            .map(img => img.url);
         
         if (successfulImages.length > 0) {
             createVideo(successfulImages);
@@ -512,7 +516,8 @@ const BeatSyncPage: React.FC = () => {
     };
     
     const isGenerating = appState === 'generating-images' || appState === 'generating-video';
-    const hasSuccessfulImages = Object.values(generatedImages).some(img => img.status === 'done');
+    // FIX: Cast Object.values to the correct type to aid TypeScript inference.
+    const hasSuccessfulImages = (Object.values(generatedImages) as GeneratedImage[]).some(img => img.status === 'done');
 
     return (
         <div className="w-full max-w-7xl mx-auto p-4 md:p-8 relative">
@@ -652,7 +657,7 @@ const BeatSyncPage: React.FC = () => {
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 w-full">
-                                        {Object.entries(generatedImages).map(([index, img]) => (
+                                        {Object.entries(generatedImages).map(([index, img]: [string, GeneratedImage]) => (
                                             <motion.div key={index} className="aspect-square bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: parseInt(index) * 0.1}}>
                                                 {img.status === 'pending' && <Spinner className="w-8 h-8 text-gray-500"/>}
                                                 {img.status === 'done' && img.url && <img src={img.url} className="w-full h-full object-cover"/>}

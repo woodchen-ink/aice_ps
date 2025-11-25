@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7,9 +8,9 @@ import React, { useState, useEffect } from 'react';
 import Spinner from './Spinner';
 import { SearchIcon } from './icons';
 import { Template } from '../App';
+import { motion } from 'framer-motion';
 
 
-// New component to handle fetching and displaying template image
 const TemplateCard: React.FC<{
   template: Template;
   onSelect: (template: Template) => void;
@@ -21,48 +22,46 @@ const TemplateCard: React.FC<{
     const fetchImage = async () => {
       try {
         const response = await fetch(template.iconUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch template image: ${template.iconUrl}`);
-        }
+        if (!response.ok) throw new Error('Failed');
         const blob = await response.blob();
         objectUrl = URL.createObjectURL(blob);
         setImageSrc(objectUrl);
       } catch (error) {
-        console.error(error);
-        // Could set a placeholder error image source here
+         // silent fail
       }
     };
-
     fetchImage();
-
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [template.iconUrl]);
 
   return (
-    <div
-      className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20 hover:border-blue-500/50 hover:-translate-y-1"
+    <motion.div
+      whileHover={{ y: -5 }}
+      className="glass-panel rounded-2xl overflow-hidden group cursor-pointer flex flex-col h-full"
       onClick={() => onSelect(template)}
     >
-      <div className="cursor-pointer">
-        <div className="aspect-video bg-gray-900 overflow-hidden flex items-center justify-center">
-          {imageSrc ? (
-            <img src={imageSrc} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          ) : (
-            <Spinner className="w-8 h-8 text-gray-500" />
-          )}
-        </div>
-        <div className="p-4">
-          <h3 className="text-xl font-bold text-white truncate">{template.name}</h3>
-          <p className="text-gray-400 mt-2 text-sm h-20 overflow-hidden text-ellipsis">
-            {template.prompt}
-          </p>
+      <div className="aspect-video bg-gray-900/50 overflow-hidden relative">
+        {imageSrc ? (
+          <>
+            <img src={imageSrc} alt={template.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Spinner className="w-8 h-8 text-gray-600" />
+          </div>
+        )}
+      </div>
+      <div className="p-5 flex flex-col flex-1">
+        <h3 className="text-lg font-bold text-gray-100 group-hover:text-blue-400 transition-colors">{template.name}</h3>
+        <p className="text-gray-400 mt-2 text-sm line-clamp-2 flex-1">
+          {template.description}
+        </p>
+        <div className="mt-4 pt-4 border-t border-white/5">
+             <span className="text-xs font-mono text-gray-500 bg-gray-800/50 px-2 py-1 rounded">Prompt Template</span>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -96,19 +95,16 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
         fetchTemplates();
     }, []);
 
-    // Reset page to 1 when search query changes
     useEffect(() => {
         setCurrentPage(1);
     }, [searchQuery]);
 
-    // Filtering logic
     const filteredTemplates = templates.filter(template =>
         template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         template.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
         template.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Pagination logic based on filtered results
     const totalPages = Math.ceil(filteredTemplates.length / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const currentTemplates = filteredTemplates.slice(startIndex, startIndex + ITEMS_PER_PAGE);
@@ -116,37 +112,45 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages) {
             setCurrentPage(newPage);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
     if (isLoading) {
-        return <div className="flex justify-center items-center h-64"><Spinner /></div>;
+        return <div className="flex justify-center items-center h-[60vh]"><Spinner /></div>;
     }
 
     if (error) {
-        return <div className="text-center text-red-400 bg-red-900/50 p-6 rounded-lg">{error}</div>;
+        return <div className="text-center text-red-400 bg-red-900/20 p-6 rounded-2xl border border-red-500/20 max-w-lg mx-auto mt-10">{error}</div>;
     }
 
     return (
-        <div className="w-full max-w-6xl mx-auto p-4 md:p-8 animate-fade-in">
-            <div className="text-center mb-8">
-                <h2 className="font-['Caveat'] text-5xl md:text-7xl font-bold text-white tracking-wider">Awesome Nano Banana</h2>
-                <p className="text-gray-300 text-lg md:text-xl mt-2">NB提示词模板库</p>
+        <div className="w-full max-w-7xl mx-auto p-4 md:p-8 animate-fade-in">
+            <div className="text-center mb-12 space-y-4">
+                <h2 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500 tracking-tight font-['Permanent_Marker']">
+                    NB Library
+                </h2>
+                <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto">
+                    探索精心策划的提示词模板库，激发您的创作灵感。
+                </p>
             </div>
             
             {/* Search Bar */}
-            <div className="mb-8 w-full max-w-2xl mx-auto">
-                <div className="relative">
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <SearchIcon className="h-5 w-5 text-gray-400" />
+            <div className="mb-10 w-full max-w-2xl mx-auto relative z-10">
+                <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl blur opacity-20 group-hover:opacity-40 transition-opacity duration-500"></div>
+                    <div className="relative bg-gray-900 rounded-xl flex items-center">
+                         <div className="pl-4 text-gray-500">
+                            <SearchIcon className="h-5 w-5" />
+                        </div>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="搜索模板、风格或提示词..."
+                            className="block w-full bg-transparent py-4 pl-3 pr-4 text-gray-200 placeholder-gray-500 focus:outline-none"
+                        />
                     </div>
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="搜索模板名称或提示词..."
-                        className="block w-full rounded-lg border-gray-600 bg-gray-900/50 py-3 pl-11 pr-4 text-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-colors"
-                    />
                 </div>
             </div>
 
@@ -160,28 +164,28 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
                         />
                     ))
                 ) : (
-                     <div className="col-span-full text-center py-16">
+                     <div className="col-span-full text-center py-20 glass-panel rounded-3xl">
                         <p className="text-gray-400 text-lg">找不到匹配 “<span className="font-semibold text-white">{searchQuery}</span>” 的模板。</p>
                     </div>
                 )}
             </div>
 
             {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-4 mt-12">
+                <div className="flex justify-center items-center gap-4 mt-16">
                     <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 transition-colors hover:bg-gray-600"
+                        className="px-5 py-2.5 glass-button rounded-xl disabled:opacity-30 transition-all text-sm font-semibold"
                     >
                         上一页
                     </button>
-                    <span className="text-gray-300">
-                        第 {currentPage} 页 / 共 {totalPages} 页
+                    <span className="text-gray-400 font-mono bg-black/30 px-3 py-1 rounded-lg border border-white/5">
+                        {currentPage} / {totalPages}
                     </span>
                     <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="px-4 py-2 bg-gray-700 text-white rounded-lg disabled:opacity-50 transition-colors hover:bg-gray-600"
+                        className="px-5 py-2.5 glass-button rounded-xl disabled:opacity-30 transition-all text-sm font-semibold"
                     >
                         下一页
                     </button>
