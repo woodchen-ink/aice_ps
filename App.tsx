@@ -17,7 +17,7 @@ import CropPanel from './components/CropPanel';
 import FusionPanel from './components/FusionPanel';
 import TexturePanel from './components/TexturePanel';
 import ErasePanel from './components/ErasePanel';
-import { UndoIcon, RedoIcon, EyeIcon, BullseyeIcon, DownloadIcon, RefreshIcon, NewFileIcon } from './components/icons';
+import { UndoIcon, RedoIcon, EyeIcon, BullseyeIcon, DownloadIcon, RefreshIcon, NewFileIcon, UploadIcon } from './components/icons';
 import StartScreen from './components/StartScreen';
 import PastForwardPage from './components/PastForwardPage';
 import TemplateLibraryPage from './components/TemplateLibraryPage';
@@ -107,7 +107,7 @@ type LastAction =
   | { type: 'erase' };
 
 export type View = 'editor' | 'past-forward' | 'template-library' | 'template-display';
-export type EditorInitialState = { baseImageUrl: string; prompt: string };
+export type EditorInitialState = { baseImageFile: File; prompt: string };
 export interface Template {
   id: string;
   name: string;
@@ -140,6 +140,10 @@ const EditorView: React.FC<{
   const [batchCandidates, setBatchCandidates] = useState<string[]>([]);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
+  // Ref to track if we're currently processing a template to prevent duplicate loads
+  const isProcessingTemplateRef = useRef<boolean>(false);
+  const hasLoadedFromUrlRef = useRef<boolean>(false);
+
   // Cropping state
   const imgRef = useRef<HTMLImageElement>(null);
   const [crop, setCrop] = useState<Crop>();
@@ -150,12 +154,15 @@ const EditorView: React.FC<{
   const [retouchPrompt, setRetouchPrompt] = useState('');
   const [retouchHotspot, setRetouchHotspot] = useState<{ x: number, y: number } | null>(null);
 
+  // File input ref for replacing image
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [originalImageSrc, setOriginalImageSrc] = useState<string | null>(null);
 
   const currentImageFile = history[historyIndex];
   const originalImageFile = history[0];
-  
+
   useEffect(() => {
     if (currentImageFile) {
         const url = URL.createObjectURL(currentImageFile);
@@ -174,66 +181,97 @@ const EditorView: React.FC<{
     setOriginalImageSrc(null);
   }, [originalImageFile]);
 
-  // Effect to START processing an initial state from a template
+  // Effect to load template from URL parameter
+  useEffect(() => {
+    // Only run once on mount
+    if (hasLoadedFromUrlRef.current) {
+        return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.hash.substring(2)); // Skip '#?'
+    const templateId = urlParams.get('templateId');
+
+    if (!templateId) {
+        return;
+    }
+
+    hasLoadedFromUrlRef.current = true;
+    isProcessingTemplateRef.current = true;
+    setIsTemplateLoading(true);
+
+    const loadTemplateFromId = async () => {
+        try {
+            // Fetch templates.json
+            const response = await fetch('/public/templates.json');
+            if (!response.ok) {
+                throw new Error('无法加载模板列表');
+            }
+            const templates: Template[] = await response.json();
+            const template = templates.find(t => t.id === templateId);
+
+            if (!template) {
+                throw new Error(`找不到模板: ${templateId}`);
+            }
+
+            // Fetch the template image
+            const imageResponse = await fetch(template.baseUrl);
+            if (!imageResponse.ok) {
+                throw new Error('无法加载模板图片');
+            }
+            const blob = await imageResponse.blob();
+            const fileName = template.baseUrl.split('/').pop() || 'template.png';
+            const file = new File([blob], fileName, { type: blob.type });
+
+            // Set the editor state
+            setHistory([file]);
+            setHistoryIndex(0);
+            setActiveTab('adjust');
+            setInitialAdjustPrompt(template.prompt);
+            setIsTemplateLoading(false);
+            isProcessingTemplateRef.current = false;
+
+            // Clear the URL parameter
+            window.location.hash = '#';
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : '加载模板时出错';
+            console.error('Error loading template from URL:', errorMessage, e);
+            setError(errorMessage);
+            setIsTemplateLoading(false);
+            isProcessingTemplateRef.current = false;
+            hasLoadedFromUrlRef.current = false; // Allow retry
+        }
+    };
+
+    loadTemplateFromId();
+  }, []); // Empty deps - only run on mount
+
+  // Effect to load a template's initial state (legacy, keeping for compatibility)
   useEffect(() => {
     if (!initialState) {
         return;
     }
 
-    const processInitialState = async () => {
-        // Reset state for new template loading sequence
-        setHistory([]);
-        setHistoryIndex(-1);
-        setLastAction(null);
-        setError(null);
-        
-        // Set loading flags
-        setIsTemplateLoading(true);
-        setIsLoading(true);
-
-        try {
-            // Perform the async operation
-            const response = await fetch(initialState.baseImageUrl);
-            if (!response.ok) {
-                throw new Error(`无法加载模板图片 (status: ${response.status})`);
-            }
-            const blob = await response.blob();
-            const fileName = initialState.baseImageUrl.split('/').pop() || 'template.png';
-            const file = new File([blob], fileName, { type: blob.type });
-
-            // Update state with the result. This will trigger the second useEffect.
-            setHistory([file]);
-            setHistoryIndex(0);
-            setActiveTab('adjust');
-            setInitialAdjustPrompt(initialState.prompt);
-        } catch (e) {
-            // Update state with the error. This will also trigger the second useEffect.
-            const errorMessage = e instanceof Error ? e.message : '加载模板时出错。';
-            setError(errorMessage);
-        }
-    };
-
-    processInitialState();
-  }, [initialState]); // This effect is the "trigger"
-
-  // Effect to handle the COMPLETION of the loading process
-  useEffect(() => {
-    // Guard: only run if we are in the template loading process
-    if (!isTemplateLoading) {
+    // Prevent duplicate processing (React Strict Mode calls effects twice)
+    if (isProcessingTemplateRef.current) {
         return;
     }
 
-    // Check for completion conditions (either success or failure)
-    const isSuccess = history.length > 0;
-    const isFailure = !!error;
+    isProcessingTemplateRef.current = true;
+    setIsTemplateLoading(true);
 
-    if (isSuccess || isFailure) {
-        // If the process is complete, clean up
-        onTemplateLoaded();          // Tell the parent to clear the initialState trigger
-        setIsTemplateLoading(false); // Turn off the template loading UI
-        setIsLoading(false);         // Re-enable general UI controls
-    }
-  }, [isTemplateLoading, history, error, onTemplateLoaded]); // This effect is the "listener/cleaner"
+    // Directly use the provided file - no async fetch needed
+    setHistory([initialState.baseImageFile]);
+    setHistoryIndex(0);
+    setActiveTab('adjust');
+    setInitialAdjustPrompt(initialState.prompt);
+
+    // Clean up after a brief delay to show the state transition
+    setTimeout(() => {
+        setIsTemplateLoading(false);
+        onTemplateLoaded();
+        isProcessingTemplateRef.current = false;
+    }, 100);
+  }, [initialState, onTemplateLoaded]);
 
 
   const displaySrc = isComparing ? originalImageSrc : imageSrc;
@@ -323,6 +361,20 @@ const EditorView: React.FC<{
         URL.revokeObjectURL(link.href);
     }
   }, [currentImageFile]);
+
+  const handleReplaceImage = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      updateHistory(file);
+      setLastAction(null);
+      // Reset file input so the same file can be selected again
+      e.target.value = '';
+    }
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -492,6 +544,7 @@ const EditorView: React.FC<{
 
   const ActionButtons = () => (
     <>
+      <ActionButton onClick={handleReplaceImage} disabled={isLoading} icon={UploadIcon} label="更换图片" title="更换图片" />
       <ActionButton onClick={handleStartOver} disabled={isLoading} icon={NewFileIcon} label="新图片" title="新图片" />
       <ActionButton onClick={handleUndo} disabled={historyIndex <= 0 || isLoading} icon={UndoIcon} label="撤销" title="撤销 (Ctrl+Z)" />
       <ActionButton onClick={handleRedo} disabled={historyIndex >= history.length - 1 || isLoading} icon={RedoIcon} label="重做" title="重做 (Ctrl+Y)" />
@@ -524,43 +577,56 @@ const EditorView: React.FC<{
 
   return (
     <>
-      {error && !currentImageFile && (
+      {/* Hidden file input for replacing image */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileInputChange}
+        style={{ display: 'none' }}
+      />
+      {error && !currentImageFile && !isTemplateLoading && (
         <div className="w-full max-w-4xl mx-auto bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl relative text-center mb-4 animate-fade-in backdrop-blur-sm shadow-lg" role="alert">
           <strong className="font-bold">错误：</strong>
           <span className="block sm:inline ml-2">{error}</span>
         </div>
       )}
-      {!currentImageFile ? (
-        <StartScreen 
-            onFileSelect={handleLocalFileSelect} 
+      {!currentImageFile && !isTemplateLoading ? (
+        <StartScreen
+            onFileSelect={handleLocalFileSelect}
             onImageGenerated={handleLocalImageGenerated}
             onTemplateSelect={onTemplateSelect}
             onShowTemplateLibrary={onShowTemplateLibrary}
         />
-      ) : (
-        <div className="w-full max-w-7xl flex flex-col items-center gap-8 animate-fade-in py-4">
+      ) : isTemplateLoading ? (
+        <div className="w-full h-full flex flex-col items-center justify-center">
+          <Spinner className="h-16 w-16 text-blue-400" />
+          <p className="mt-4 text-lg text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-bold animate-pulse">正在加载模板...</p>
+        </div>
+      ) : currentImageFile ? (
+        <div className="w-full h-full flex flex-col animate-fade-in overflow-hidden">
           {error && (
-            <div className="w-full max-w-4xl mx-auto bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-xl relative text-center animate-fade-in backdrop-blur-sm shadow-lg" role="alert">
+            <div className="w-full bg-red-500/20 border-b border-red-500/50 text-red-200 px-6 py-3 text-center animate-fade-in backdrop-blur-sm" role="alert">
               <strong className="font-bold">错误：</strong>
-              <span className="block sm:inline ml-2">{error}</span>
+              <span className="ml-2">{error}</span>
             </div>
            )}
-           
+
           {/* Main Editor Area */}
-          <div className="w-full flex flex-col lg:flex-row gap-6 items-start justify-center">
-              
+          <div className="flex-1 flex overflow-hidden">
+
               {/* Image Canvas */}
-              <div className="w-full max-w-4xl relative flex-shrink-0">
-                <div className="bg-[#0a0b10] rounded-2xl shadow-2xl shadow-black/50 overflow-hidden border border-white/5 relative group">
+              <div className="flex-1 flex items-center justify-center p-6 overflow-auto">
+                <div className="bg-[#0a0b10] rounded-2xl shadow-2xl shadow-black/50 overflow-hidden border border-white/5 relative group min-h-[500px] w-full max-w-5xl">
                     {isLoading && (
                       <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 backdrop-blur-md">
                         <Spinner className="h-16 w-16 text-blue-400" />
                         <p className="mt-4 text-lg text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 font-bold animate-pulse">AI 正在创作中...</p>
                       </div>
                     )}
-                    
+
                     {displaySrc ? (
-                      <div className="relative">
+                      <div className="relative min-h-[500px] flex items-center justify-center">
                         <ReactCrop
                           crop={crop}
                           onChange={c => setCrop(c)}
@@ -612,9 +678,9 @@ const EditorView: React.FC<{
                     <ActionButtons />
                 </div>
               </div>
-              
-              {/* Controls Panel */}
-              <div className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+
+              {/* Controls Panel - Right Sidebar */}
+              <div className="w-80 flex-shrink-0 flex flex-col gap-4 border-l border-white/5 bg-gray-900/30 p-6 overflow-y-auto">
                   {/* Segmented Control Tabs */}
                 <div className="glass-panel p-1.5 rounded-xl flex flex-wrap gap-1 justify-center">
                   {TABS.map((tab) => (
@@ -675,10 +741,9 @@ const EditorView: React.FC<{
                   {activeTab === 'fusion' && <FusionPanel onApplyFusion={handleApplyFusion} isLoading={isLoading} onError={setError} />}
                 </div>
               </div>
-
           </div>
         </div>
-      )}
+      ) : null}
       <BatchResultModal
         isOpen={isBatchModalOpen}
         images={batchCandidates}
@@ -736,8 +801,9 @@ const App: React.FC = () => {
     setEditorInitialState(null);
   }, []);
 
-  const handleUseTemplateInEditor = (template: Template) => {
-    setEditorInitialState({ baseImageUrl: template.baseUrl, prompt: template.prompt });
+  const handleUseTemplateInEditor = (templateId: string) => {
+    // Navigate to editor with templateId as URL parameter
+    window.location.hash = `#?templateId=${encodeURIComponent(templateId)}`;
     setSelectedTemplate(null);
     setActiveView('editor');
   };
@@ -756,36 +822,48 @@ const App: React.FC = () => {
   }, [notification]);
   
   const MainContent: React.FC = () => {
-    switch (activeView) {
-        case 'past-forward': return <PastForwardPage />;
-        case 'template-library': return <TemplateLibraryPage onTemplateSelect={handleTemplateSelect} />;
-        case 'template-display': 
-            return selectedTemplate ? (
-                <TemplateDisplayPage
-                    template={selectedTemplate}
-                    onBack={() => {
-                        setSelectedTemplate(null);
-                        setActiveView('template-library');
-                    }}
-                    onUseInEditor={handleUseTemplateInEditor}
-                />
-            ) : null;
-        case 'editor':
-        default:
-          return <EditorView 
-              onFileSelect={handleFileSelect} 
+    // Always render EditorView to preserve its state, but hide it when not active
+    return (
+      <>
+        <div style={{ display: activeView === 'editor' ? 'contents' : 'none' }}>
+          <EditorView
+              onFileSelect={handleFileSelect}
               onImageGenerated={handleImageGenerated}
               initialState={editorInitialState}
               onTemplateLoaded={handleTemplateLoaded}
               onTemplateSelect={handleTemplateSelect}
               onShowTemplateLibrary={handleShowTemplateLibrary}
-          />;
-    }
+          />
+        </div>
+        {activeView === 'past-forward' && (
+          <div className="w-full h-full overflow-y-auto">
+            <PastForwardPage />
+          </div>
+        )}
+        {activeView === 'template-library' && (
+          <div className="w-full h-full overflow-y-auto">
+            <TemplateLibraryPage onTemplateSelect={handleTemplateSelect} />
+          </div>
+        )}
+        {activeView === 'template-display' && selectedTemplate && (
+          <div className="w-full h-full overflow-y-auto">
+            <TemplateDisplayPage
+                template={selectedTemplate}
+                onBack={() => {
+                    setSelectedTemplate(null);
+                    setActiveView('template-library');
+                }}
+                onUseInEditor={handleUseTemplateInEditor}
+            />
+          </div>
+        )}
+      </>
+    );
   };
 
 
   return (
-    <div className="flex flex-col min-h-screen font-sans text-gray-100 selection:bg-blue-500/30 selection:text-blue-100">
+    <div className="flex flex-col h-screen overflow-hidden font-sans text-gray-100 selection:bg-blue-500/30 selection:text-blue-100">
       <Header
         activeView={activeView}
         onViewChange={(view) => {
@@ -796,7 +874,7 @@ const App: React.FC = () => {
             setActiveView(view)
         }}
       />
-      <main className="flex-1 flex flex-col items-center p-4 relative z-10">
+      <main className="flex-1 flex overflow-hidden relative z-10">
         <MainContent />
       </main>
       <AnimatePresence>

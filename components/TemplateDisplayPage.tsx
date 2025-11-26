@@ -14,7 +14,7 @@ import ImageLightbox from './ImageLightbox';
 interface TemplateDisplayPageProps {
   template: Template;
   onBack: () => void;
-  onUseInEditor: (template: Template) => void;
+  onUseInEditor: (templateId: string) => void;
 }
 
 const ImagePanel: React.FC<{ title: string; imageUrl: string | null; isLoading: boolean; error?: string | null }> = ({ title, imageUrl, isLoading, error }) => {
@@ -117,10 +117,27 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
   };
 
   const handleCopyPrompt = () => {
-    navigator.clipboard.writeText(template.prompt).then(() => {
+    // Fallback copy method that works without clipboard permissions
+    const textArea = document.createElement('textarea');
+    textArea.value = template.prompt;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
         setCopyStatus('copied');
         setTimeout(() => setCopyStatus('idle'), 2000);
-    });
+      }
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    } finally {
+      document.body.removeChild(textArea);
+    }
   };
 
   const currentAfterImageUrl = afterImageUrl || afterPreviewUrl;
@@ -219,7 +236,7 @@ const TemplateDisplayPage: React.FC<TemplateDisplayPageProps> = ({ template, onB
             返回
           </button>
           <button
-            onClick={() => onUseInEditor(template)}
+            onClick={() => onUseInEditor(template.id)}
             className="w-full sm:w-auto px-8 py-3 bg-gradient-to-br from-blue-600 to-blue-500 text-white font-bold rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/40 hover:-translate-y-px active:scale-95 active:shadow-inner"
           >
             复制提示词并上传图片来改图

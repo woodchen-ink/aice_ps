@@ -48,13 +48,13 @@ const NavItem: React.FC<{
 
 const Header: React.FC<HeaderProps> = ({ activeView, onViewChange }) => {
   return (
-    <div className="sticky top-4 z-50 w-full px-4 flex justify-center">
-        <header className="w-full max-w-6xl glass-panel rounded-full px-4 py-3 flex items-center justify-center relative overflow-hidden">
+    <div className="sticky top-0 z-50 w-full border-b border-white/5">
+        <header className="w-full glass-panel px-6 py-4 flex items-center relative overflow-hidden">
             {/* Subtle Gradient Glow behind header */}
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 blur-xl opacity-50 pointer-events-none"></div>
 
             {/* Navigation */}
-            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1 sm:gap-4 overflow-x-auto no-scrollbar">
                 <NavItem
                     view="editor"
                     current={activeView}

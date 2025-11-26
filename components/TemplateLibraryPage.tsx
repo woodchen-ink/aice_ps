@@ -117,7 +117,7 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
     };
 
     if (isLoading) {
-        return <div className="flex justify-center items-center h-[60vh]"><Spinner /></div>;
+        return <div className="w-full h-full flex justify-center items-center"><Spinner /></div>;
     }
 
     if (error) {
