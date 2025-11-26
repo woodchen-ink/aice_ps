@@ -202,7 +202,7 @@ const EditorView: React.FC<{
     const loadTemplateFromId = async () => {
         try {
             // Fetch templates.json
-            const response = await fetch('/public/templates.json');
+            const response = await fetch('./templates.json');
             if (!response.ok) {
                 throw new Error('无法加载模板列表');
             }
@@ -616,7 +616,7 @@ const EditorView: React.FC<{
           <div className="flex-1 flex overflow-hidden">
 
               {/* Image Canvas */}
-              <div className="flex-1 flex items-center justify-center p-6 overflow-auto">
+              <div className="flex-1 flex items-center justify-center p-6 overflow-auto relative">
                 <div className="bg-[#0a0b10] rounded-2xl shadow-2xl shadow-black/50 overflow-hidden border border-white/5 relative group min-h-[500px] w-full max-w-5xl">
                     {isLoading && (
                       <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-20 backdrop-blur-md">
@@ -668,9 +668,9 @@ const EditorView: React.FC<{
                         </div>
                     )}
                 </div>
-                
+
                 {/* Floating Action Bar for Desktop */}
-                <div className="absolute top-4 right-4 flex flex-col gap-2 hidden lg:flex">
+                <div className="absolute top-4 right-4 flex flex-col gap-2 hidden lg:flex z-10">
                    <ActionButtons />
                 </div>
                  {/* Action Bar for Mobile */}
@@ -680,14 +680,14 @@ const EditorView: React.FC<{
               </div>
 
               {/* Controls Panel - Right Sidebar */}
-              <div className="w-80 flex-shrink-0 flex flex-col gap-4 border-l border-white/5 bg-gray-900/30 p-6 overflow-y-auto">
+              <div className="w-96 flex-shrink-0 flex flex-col gap-4 border-l border-white/5 bg-gray-900/30 p-6 overflow-y-auto">
                   {/* Segmented Control Tabs */}
-                <div className="glass-panel p-1.5 rounded-xl flex flex-wrap gap-1 justify-center">
+                <div className="glass-panel p-1.5 rounded-xl grid grid-cols-4 gap-1">
                   {TABS.map((tab) => (
                     <button
                       key={tab}
                       onClick={() => { if (!isLoading) { setActiveTab(tab); setRetouchHotspot(null); } }}
-                      className={`flex-1 min-w-[3rem] py-2 px-1 text-xs font-medium rounded-lg transition-all duration-200 focus:outline-none ${
+                      className={`py-2.5 px-2 text-xs font-medium rounded-lg transition-all duration-200 focus:outline-none whitespace-nowrap ${
                         activeTab === tab
                           ? 'bg-white/10 text-white shadow-sm shadow-black/20 backdrop-blur-sm'
                           : 'text-gray-400 hover:text-white hover:bg-white/5'

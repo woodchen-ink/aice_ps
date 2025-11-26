@@ -1,22 +1,38 @@
 # Aice PS - AI 图片编辑器
 
-Aice PS 是一款功能强大的网页版 AI 照片编辑器，利用 Google aistudio 的先进能力，让专业级的图像编辑和创作变得简单直观。用户可以通过简单的文本提示对图像进行修饰、应用创意滤镜、进行专业调整，甚至从零开始生成全新的图像。
+Aice PS 是一款功能强大的网页版 AI 照片编辑器，利用 Google Gemini API 的先进能力，让专业级的图像编辑和创作变得简单直观。用户可以通过简单的文本提示对图像进行修饰、应用创意滤镜、进行专业调整，甚至从零开始生成全新的图像。
 
 ![Aice PS 界面截图](public/images/show.jpg)
 
-## 注意，调用 gemini api key 是需要收费的。但直接调用环境变量中的api是免费的。[推荐可大方使用的极具性价比API平台 2分钱一张，高清1毛2](https://nb2.kuai.host/)
+## 🚀 部署方式
 
-### [AiStudio 【NanoBanana APP】](https://ai.studio/apps/drive/1JSVTWc7Pe1GfLLrQcBWPZF_yH_80xUGg) 
+本项目已部署在**腾讯云 EdgeOne Pages**（静态页面托管），支持通过 URL 参数配置 API：
 
-> 登录了google aistudio 的可以直接打开上面 app 使用。完全免费
+```
+https://your-domain.com?server=https://api.example.com&key=sk-xxxxx
+```
 
-### [【可自部署版本 DEMO】https://nb2.kuai.host/](https://nb2.kuai.host/)
+### 典型使用场景
+- ✅ 静态页面托管（EdgeOne Pages / Vercel / Netlify）
+- ✅ API 平台 Playground 嵌入（如 OneHub）
+- ✅ 自托管 Docker 部署
 
-> #### 自部署版本，国内可直接用，已经配套了超值的香蕉API，推荐使用。
+## 注意事项
 
-> #### 请大家谨慎使用自己的gemini api key。[推荐可大方使用的极具性价比API平台](https://cnb.build/no.1/api/-/issues/2)
+⚠️ **调用 Gemini API 是需要收费的**
 
- [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)  [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11) 
+推荐使用：
+- [推荐可大方使用的极具性价比API平台 2分钱一张，高清1毛2](https://nb2.kuai.host/)
+- [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)
+- [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11)
+
+### 免费使用方式
+
+1. **[AiStudio 【NanoBanana APP】](https://ai.studio/apps/drive/1JSVTWc7Pe1GfLLrQcBWPZF_yH_80xUGg)**
+   > 登录 Google AI Studio 可直接使用，完全免费
+
+2. **[可自部署版本 DEMO](https://nb2.kuai.host/)**
+   > 国内可直接用，已配套超值的香蕉API
 
 ## 视频中提示词请查看APP中的【NB提示词库】
 
@@ -45,19 +61,42 @@ Aice PS 结合了多种尖端 AI 能力，为您提供一站式的创意图片�
 - **组件库**: `react-image-crop`, `framer-motion`
 - **部署**: Docker & Nginx
 
-## 🐳 Docker 部署
+## 📦 部署指南
 
-您可以使用 Docker 轻松部署 Aice PS。
+### 静态页面托管（推荐）
 
-### 1. 构建镜像
+本项目支持部署到任何静态页面托管平台：
+
+1. **腾讯云 EdgeOne Pages**
+   ```bash
+   npm run build
+   # 上传 dist/ 目录到 EdgeOne Pages
+   ```
+
+2. **Vercel / Netlify**
+   ```bash
+   npm run build
+   # 自动部署或上传 dist/ 目录
+   ```
+
+3. **使用 URL 参数配置 API**
+   ```
+   https://your-domain.com?server=https://api.example.com&key=sk-xxxxx
+   ```
+   - 参数会自动保存到 localStorage
+   - 保存后 URL 会自动清理参数以保护安全
+
+### 🐳 Docker 自托管部署
+
+如需自托管，可使用 Docker：
+
+#### 1. 构建镜像
 
 ```bash
 docker build -t aice-ps .
 ```
 
-### 2. 运行容器
-
-您可以直接运行容器，并通过环境变量传入 API 密钥（可选）。
+#### 2. 运行容器
 
 ```bash
 docker run -d -p 8080:80 --name aice-ps \
@@ -66,17 +105,16 @@ docker run -d -p 8080:80 --name aice-ps \
   aice-ps
 ```
 
-或者使用 `docker-compose`：
+或使用 `docker-compose`：
 
-1. 创建 `.env` 文件并设置环境变量：
-   ```
-   API_KEY=your_gemini_api_key
-   API_BASE_URL=https://your-custom-api-endpoint
-   ```
-2. 启动服务：
-   ```bash
-   docker-compose up -d
-   ```
+```bash
+# 创建 .env 文件
+echo "API_KEY=your_gemini_api_key" > .env
+echo "API_BASE_URL=https://your-custom-api-endpoint" >> .env
+
+# 启动服务
+docker-compose up -d
+```
 
 访问 `http://localhost:8080` 即可使用。
 
@@ -96,28 +134,53 @@ Aice PS 的强大功能由 Google 最先进的一系列生成式 AI 模型驱动
 -   **文本与细节处理**: 能够识别并修改图像中的文字，同时保持原始字体和风格。
 -   **多图像融合**: 模型可以理解并融合多张输入图片。
 
-## ⚠️ API 密钥使用说明
-请注意，如果您在设置中提供了自己的 Google Gemini API 密钥，通过该密钥进行的 API 调用将会**产生费用**。如果将设置留空，应用会尝试使用部署时在环境变量中配置的 API 密钥（该密钥可能是免费的，也可能是您自己付费的）。请根据您的使用情况谨慎配置。
+## ⚠️ API 配置说明
 
-### 待办事项
-- [x] Google Aistudio APP，相对完善且好用的可免费使用Nano Banana的APP
-- [x] 支持多图融合
-- [x] 一张图片生成年轻及年老时的一整套图片出来 (Past Forward)
-- [x] 增加音画志功能页面：风格化图集，随节拍一键成片。
-- [x] 增加粘贴传图功能，在首页中粘贴图片就自动上传。
-- [x] 增加模板功能 (NB 提示词库)
-- [x] 提示词集中营 (NB 提示词库)
-- [x] 重新支持Gemini API，大家也可以自行部署并使用兼容gemini api的API来使用。[推荐可大方使用的极具性价比API平台，源头价格更低](https://cnb.build/no.1/api/-/issues/2)
-- [x] 修正图片上传限制过小的问题
-- [x] 3图融合升级为4图融合。
-- [x] Docker 部署支持。
-- [] 持续增加提示词模板中(进行中)
-- [] 芝士香蕉功能-计划中
-- [] 接入 第三方平台API
-- [] ……
+### 方式 1: URL 参数（推荐，用于嵌入式场景）
+```
+https://your-domain.com?server=https://api.example.com&key=sk-xxxxx
+```
+- 适用于 API 平台 Playground 嵌入
+- 参数会自动保存到浏览器本地存储
+- 保存后 URL 自动清理参数
 
+### 方式 2: 设置面板
+- 在应用内打开设置面板手动配置
+- API Key 和 Base URL 保存在 localStorage
 
-###  [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)  [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11) 
+### 方式 3: 环境变量（Docker 部署）
+```bash
+API_KEY=your_gemini_api_key
+API_BASE_URL=https://your-custom-api-endpoint
+```
+
+⚠️ **费用提醒**：使用自己的 API Key 会产生费用，请谨慎配置。
+
+## 🎯 开发路线
+
+### 已完成
+- [x] Google Aistudio APP，免费使用 Nano Banana
+- [x] 多图融合（2-4 张图片）
+- [x] Past Forward - 年龄穿越功能
+- [x] 音画志 - 音乐节拍视频生成
+- [x] 粘贴上传图片
+- [x] NB 提示词库（模板系统）
+- [x] Gemini API 支持
+- [x] Docker 部署支持
+- [x] **URL 参数配置 API（适配 OneHub 等平台）**
+- [x] **模板 URL hash 加载**
+- [x] **图片资源 CDN 迁移**
+- [x] **批量生成候选图片**
+- [x] **布局优化（侧边栏加宽，按钮网格布局）**
+
+### 进行中
+- [ ] 持续增加提示词模板
+- [ ] 芝士香蕉功能
+- [ ] 接入第三方平台 API
+
+### 相关链接
+- [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)
+- [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11) 
 
 ## 📄 许可证
 
