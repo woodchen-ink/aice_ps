@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+
+## Gemini nano banana api文档
+
+https://ai.google.dev/gemini-api/docs/image-generation
+
+
 ## Project Overview
 
 Aice PS is a web-based AI photo editor powered by Google Gemini API. It provides professional-grade image editing and creation capabilities through natural language prompts. The app leverages multiple Google AI models (gemini-2.5-flash-image, imagen-4.0-generate-001) for various image manipulation tasks.
