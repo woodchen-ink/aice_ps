@@ -15,6 +15,17 @@ Aice PS 是一款功能强大的网页版 AI 照片编辑器，利用 Google Gem
 
 
 
+## 导入更多模板方法
+
+```
+# 下载最新 README
+curl -L "https://raw.githubusercontent.com/PicoTrex/Awesome-Nano-Banana-images/refs/heads/main/README.md" -o scripts/nano-banana-readme.md
+
+# 运行导入
+node scripts/import-all-chinese.js
+```
+
+
 
 ## 🚀 部署方式
 
