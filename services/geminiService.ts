@@ -256,7 +256,12 @@ const callImageEditingModel = async (parts: any[], action: string): Promise<stri
     }
 }
 
-export const generateImageFromText = async (prompt: string, aspectRatio: string, imageCount: number = 1): Promise<string[]> => {
+export const generateImageFromText = async (
+    prompt: string,
+    aspectRatio: string = "1:1",
+    imageSize: string = "1K",
+    imageCount: number = 1
+): Promise<string[]> => {
     try {
         const ai = getGoogleAI();
 
@@ -267,11 +272,15 @@ export const generateImageFromText = async (prompt: string, aspectRatio: string,
                 model: 'gemini-3-pro-image-preview',
                 contents: {
                     parts: [{
-                        text: `Generate an image with aspect ratio ${aspectRatio}: ${prompt}`
+                        text: prompt
                     }]
                 },
                 config: {
                     responseModalities: [Modality.IMAGE],
+                    imageConfig: {
+                        aspectRatio: aspectRatio,
+                        imageSize: imageSize
+                    }
                 },
             });
 

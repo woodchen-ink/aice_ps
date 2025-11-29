@@ -243,23 +243,29 @@ Handles the cropping UI. Returns crop data as `PixelCrop` which is converted to 
 
 ## Recent Major Changes (2025-11)
 
-1. **布局优化**（最新）
+1. **图片分辨率支持**（最新）
+   - 添加官方 imageSize 参数支持（1K/2K/4K）
+   - 在 StartScreen 组件添加分辨率选择器 UI
+   - 修正 aspectRatio 参数使用方式，从拼接到 prompt 改为使用 config.imageConfig
+   - 相关文件：[services/geminiService.ts](services/geminiService.ts:259-309)，[components/StartScreen.tsx](components/StartScreen.tsx:228-247)
+
+2. **布局优化**
    - 修复编辑页面浮动按钮与侧边栏重叠问题
    - 侧边栏宽度从 `w-80` (320px) 增加到 `w-96` (384px)
    - 标签按钮从 flex-wrap 改为 grid-cols-4，避免按钮被挤压
    - 画布容器添加 `relative` 定位，确保浮动按钮正确定位
 
-2. **模板系统重构**（5a1120d）
+3. **模板系统重构**（5a1120d）
    - 支持通过 URL hash 直接加载模板
    - 图片资源迁移到远程 CDN
    - 添加图片替换功能和"在编辑器中使用"功能
 
-3. **批量处理功能**（594d226）
+4. **批量处理功能**（594d226）
    - 添加 BatchResultModal 和 BatchSelector 组件
    - 支持生成多张候选图片供用户选择
    - UI 全面改进，优化交互体验
 
-4. **静态资源优化**（251d967, 3d40494）
+5. **静态资源优化**（251d967, 3d40494）
    - prompt.md 和 templates.json 移动到 public 目录
    - 图片 URL 全部更新为远程地址
    - 背景样式从 HTML 移到 CSS

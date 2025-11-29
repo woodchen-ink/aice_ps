@@ -73,6 +73,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string|null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>('1:1');
+  const [imageSize, setImageSize] = useState<string>('1K');
   const [imageCount, setImageCount] = useState<number>(1);
   const [generatedCandidates, setGeneratedCandidates] = useState<string[] | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -116,7 +117,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
     setGeneratedCandidates(null);
     
     try {
-        const urls = await generateImageFromText(generationPrompt, aspectRatio, imageCount);
+        const urls = await generateImageFromText(generationPrompt, aspectRatio, imageSize, imageCount);
         if (urls.length === 1) {
              onImageGenerated(urls[0]);
         } else {
@@ -214,7 +215,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
                                 disabled={isGenerating}
                                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
                                     aspectRatio === value
-                                    ? 'bg-purple-600/20 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)]' 
+                                    ? 'bg-purple-600/20 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
                                     : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
                                 }`}
                             >
@@ -222,6 +223,27 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onImageGenerate
                             </button>
                         ))}
                     </div>
+                </div>
+
+                <div className="space-y-3">
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">图片分辨率</label>
+                    <div className="flex gap-2">
+                        {['1K', '2K', '4K'].map((size) => (
+                            <button
+                                key={size}
+                                onClick={() => setImageSize(size)}
+                                disabled={isGenerating}
+                                className={`flex-1 px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                                    imageSize === size
+                                    ? 'bg-purple-600/20 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                                }`}
+                            >
+                                {size}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-xs text-gray-500">分辨率越高,图片越清晰,但生成速度越慢</p>
                 </div>
 
                 {generationError && (

@@ -4,6 +4,14 @@ Aice PS 是一款功能强大的网页版 AI 照片编辑器，利用 Google Gem
 
 ![Aice PS 界面截图](public/images/show.jpg)
 
+## 与原项目的不同
+
+1. 纯静态部署, 通过查询参数设置 API 地址和 Key
+2. 支持通过 URL hash 加载模板, 更改了模板的使用方式
+3. 新增支持图片分辨率"1K""2K" "4K"
+
+
+
 ## 🚀 部署方式
 
 本项目已部署在**腾讯云 EdgeOne Pages**（静态页面托管），支持通过 URL 参数配置 API：
@@ -21,20 +29,6 @@ https://your-domain.com?server=https://api.example.com&key=sk-xxxxx
 
 ⚠️ **调用 Gemini API 是需要收费的**
 
-推荐使用：
-- [推荐可大方使用的极具性价比API平台 2分钱一张，高清1毛2](https://nb2.kuai.host/)
-- [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)
-- [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11)
-
-### 免费使用方式
-
-1. **[AiStudio 【NanoBanana APP】](https://ai.studio/apps/drive/1JSVTWc7Pe1GfLLrQcBWPZF_yH_80xUGg)**
-   > 登录 Google AI Studio 可直接使用，完全免费
-
-2. **[可自部署版本 DEMO](https://nb2.kuai.host/)**
-   > 国内可直接用，已配套超值的香蕉API
-
-## 视频中提示词请查看APP中的【NB提示词库】
 
 ## ✨ 主要功能
 
