@@ -10,6 +10,10 @@
   --neon-purple: #8b5cf6;
 }
 
+* {
+  font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans SC', system-ui, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -17,7 +21,6 @@ body {
   color: #e2e8f0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-family: 'Inter', sans-serif;
   background-color: #090A0F;
   background:
       radial-gradient(ellipse at 20% 80%, rgba(150, 50, 100, 0.25) 0%, rgba(150, 50, 100, 0) 60%),

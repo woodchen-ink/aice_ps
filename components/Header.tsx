@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, onViewChange }) => {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 blur-xl opacity-50 pointer-events-none"></div>
 
             {/* Navigation */}
-            <div className="flex items-center gap-1 sm:gap-4 overflow-x-auto no-scrollbar">
+            <div className="flex items-center justify-center gap-1 sm:gap-4 overflow-x-auto no-scrollbar w-full">
                 <NavItem
                     view="editor"
                     current={activeView}
