@@ -61,12 +61,12 @@ export const createAlbumPage = async (
     const gridHeight = CANVAS_HEIGHT - PADDING * 2 - 200; //-200 for title
     const cellWidth = gridWidth / cols;
     const cellHeight = gridHeight / rows;
-    
+
     // Polaroid dimensions
     const polaroidWidth = cellWidth * 0.8;
     const polaroidHeight = polaroidWidth * 1.2;
-    const imageWidth = polaroidWidth * 0.9;
-    const imageHeight = imageWidth;
+    const maxImageWidth = polaroidWidth * 0.9;
+    const maxImageHeight = polaroidHeight * 0.6; // Reserve space for title at bottom
 
     for (let i = 0; i < decades.length; i++) {
         const img = imageElements[i];
@@ -102,7 +102,18 @@ export const createAlbumPage = async (
         // Reset shadow for subsequent drawings
         ctx.shadowColor = 'transparent';
 
-        // Draw the image
+        // Calculate image dimensions while maintaining aspect ratio
+        const imgAspectRatio = img.naturalWidth / img.naturalHeight;
+        let imageWidth = maxImageWidth;
+        let imageHeight = imageWidth / imgAspectRatio;
+
+        // If height exceeds max, scale down by height instead
+        if (imageHeight > maxImageHeight) {
+            imageHeight = maxImageHeight;
+            imageWidth = imageHeight * imgAspectRatio;
+        }
+
+        // Draw the image centered in the polaroid
         const imageX = -imageWidth / 2;
         const imageY = -polaroidHeight / 2 + (polaroidWidth - imageWidth) / 2;
         ctx.drawImage(img, imageX, imageY, imageWidth, imageHeight);

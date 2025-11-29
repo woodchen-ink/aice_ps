@@ -172,7 +172,7 @@ const PastForwardPage: React.FC = () => {
     const isGenerationComplete = Object.values(generatedImages).every((img: GeneratedImage) => img.status === 'done' || img.status === 'error');
 
     return (
-        <div className="w-full flex flex-col items-center justify-center text-center p-4 min-h-[80vh] font-['Roboto'] relative overflow-hidden">
+        <div className="w-full h-full flex flex-col items-center justify-center text-center p-4 font-['Roboto'] relative overflow-hidden">
             <div className="absolute inset-0 bg-black opacity-80 -z-20"></div>
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:36px_36px] -z-10"></div>
             
