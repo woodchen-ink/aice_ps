@@ -187,10 +187,6 @@ API_BASE_URL=https://your-custom-api-endpoint
 - [ ] 芝士香蕉功能
 - [ ] 接入第三方平台 API
 
-### 相关链接
-- [【视频教程】](https://www.bilibili.com/video/BV1hwahzNEhC/)
-- [【交流群】](https://cnb.cool/fuliai/comfyui/-/issues/11) 
-
 ## 📄 许可证
 
 本项目采用 [Apache-2.0](./LICENSE) 许可证。
