@@ -17,6 +17,11 @@ Aice PS is a web-based AI photo editor powered by Google Gemini API. It provides
 - 通过 URL 查询参数传递 API 配置（`?server=xxx&key=xxx`），适配 OneHub 等 API 平台的 Playground 嵌入使用
 - 模板系统已重构，支持通过 URL hash 加载（`#?templateId=xxx`）
 - 图片资源已迁移到远程 CDN
+- **模板系统 v2 (2025-11-29)**:
+  - 支持扩展字段(分类、标签、作者等)同时保持向后兼容
+  - 成功集成 Awesome-Nano-Banana 案例库
+  - 当前模板数: 18 (官方13 + Nano Banana Pro 3 + Nano Banana 2)
+  - 提供自动导入工具和完整文档
 
 ## Tech Stack
 
@@ -49,11 +54,18 @@ The project uses a flat file structure (no `src/` directory):
 ├── services/
 │   └── geminiService.ts      # All Google Gemini API interactions
 ├── lib/
-│   └── albumUtils.ts         # Album/image processing utilities
+│   ├── albumUtils.ts         # Album/image processing utilities
+│   └── templateUtils.ts      # Template normalization and utilities (v2)
 ├── public/
-│   ├── templates.json        # Template library data
+│   ├── templates.json        # Template library data (支持 v2 扩展字段)
 │   ├── prompt.md            # Prompt documentation
 │   └── images/              # Template images and assets
+├── scripts/
+│   ├── add-nano-banana-template.js  # 手动导入 Nano Banana 案例工具
+│   └── parse-nano-banana.py         # Python 解析脚本(备用)
+├── docs/
+│   ├── template-schema-v2.md        # 模板系统 v2 架构文档
+│   └── template-management.md       # 模板管理指南
 └── vite.config.ts           # Environment variable injection for API keys
 ```
 
@@ -269,6 +281,72 @@ Handles the cropping UI. Returns crop data as `PixelCrop` which is converted to 
    - prompt.md 和 templates.json 移动到 public 目录
    - 图片 URL 全部更新为远程地址
    - 背景样式从 HTML 移到 CSS
+
+6. **模板系统 v2 - 扩展与集成**（2025-11-29）
+   - **核心改进**:
+     - 扩展 Template 接口支持可选字段（category, tags, author, difficulty等）
+     - 完全向后兼容，现有13个官方模板无需修改
+     - 创建 `lib/templateUtils.ts` 提供规范化和工具函数
+
+   - **Nano Banana 集成**:
+     - 成功集成 Awesome-Nano-Banana-images 仓库案例
+     - 首批导入5个精选案例（3个Pro + 2个普通）
+     - 创建自动导入工具 `scripts/add-nano-banana-template.js`
+     - 图片使用 GitHub Raw CDN
+
+   - **新增工具和文档**:
+     - `lib/templateUtils.ts` - 模板规范化、分类、搜索、标签过滤
+     - `docs/template-schema-v2.md` - 完整架构设计文档
+     - `docs/template-management.md` - 模板管理和导入指南
+     - `scripts/add-nano-banana-template.js` - ES Module 导入工具
+
+   - **数据结构**:
+     ```typescript
+     interface Template {
+       // 必需字段（向后兼容）
+       id, name, iconUrl, baseUrl, description, prompt
+
+       // 新增可选字段
+       category?: 'official' | 'nano-banana-pro' | 'nano-banana' | 'community'
+       tags?: string[]
+       author?: string
+       sourceRepo?: string
+       caseNumber?: number
+       requiresInput?: boolean
+       difficulty?: 'easy' | 'medium' | 'hard'
+       createdAt?: string
+     }
+     ```
+
+   - **当前统计** (2025-11-29 更新):
+     - 总模板数: 152
+     - 官方精选: 13
+     - Nano Banana Pro: 31
+     - Nano Banana: 108
+     - 成功导入: 139 个新案例（98.6%成功率）
+
+   - **相关文件**:
+     - [App.tsx](App.tsx:111-130) - Template 接口定义
+     - [lib/templateUtils.ts](lib/templateUtils.ts) - 工具函数
+     - [public/templates.json](public/templates.json) - 模板数据
+     - [scripts/add-nano-banana-template.js](scripts/add-nano-banana-template.js) - 导入工具
+
+   - **批量导入工具** (2025-11-29):
+     - `scripts/import-all-chinese.js` - 中文README全量解析
+     - 自动化导入139个案例（98.6%成功率）
+     - 智能标签生成和难度推测
+     - 详细总结: [docs/IMPORT_SUMMARY.md](docs/IMPORT_SUMMARY.md)
+
+   - **前端性能优化**:
+     - 无限滚动替代分页（初始12个，每次加载12个）
+     - Intersection Observer自动加载
+     - 图片懒加载优化
+     - 搜索增强（支持标签和作者）
+     - 相关文件: [components/TemplateLibraryPage.tsx](components/TemplateLibraryPage.tsx)
+
+   - **使用指南**:
+     - 模板管理: [docs/template-management.md](docs/template-management.md)
+     - 导入总结: [docs/IMPORT_SUMMARY.md](docs/IMPORT_SUMMARY.md)
 
 ## Known Issues & TODOs
 

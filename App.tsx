@@ -109,12 +109,24 @@ type LastAction =
 export type View = 'editor' | 'past-forward' | 'template-library' | 'template-display';
 export type EditorInitialState = { baseImageFile: File; prompt: string };
 export interface Template {
+  // === 基础字段(必需) ===
   id: string;
   name: string;
   iconUrl: string;
   baseUrl: string;
   description: string;
   prompt: string;
+
+  // === 扩展字段(可选,向后兼容) ===
+  category?: 'official' | 'nano-banana-pro' | 'nano-banana' | 'community';
+  tags?: string[];
+  author?: string;
+  sourceRepo?: string;
+  caseNumber?: number;
+  requiresInput?: boolean;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 

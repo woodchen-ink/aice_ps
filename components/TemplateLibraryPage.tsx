@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Spinner from './Spinner';
 import { SearchIcon } from './icons';
 import { Template } from '../App';
@@ -69,14 +69,15 @@ interface TemplateLibraryPageProps {
     onTemplateSelect: (template: Template) => void;
 }
 
-const ITEMS_PER_PAGE = 9;
+const ITEMS_PER_LOAD = 12; // 每次加载12个
 
 const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSelect }) => {
     const [templates, setTemplates] = useState<Template[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [displayCount, setDisplayCount] = useState(ITEMS_PER_LOAD);
     const [searchQuery, setSearchQuery] = useState('');
+    const loadMoreRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const fetchTemplates = async () => {
@@ -95,26 +96,46 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
         fetchTemplates();
     }, []);
 
+    // 搜索时重置显示数量
     useEffect(() => {
-        setCurrentPage(1);
+        setDisplayCount(ITEMS_PER_LOAD);
     }, [searchQuery]);
 
     const filteredTemplates = templates.filter(template =>
         template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         template.prompt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        template.description.toLowerCase().includes(searchQuery.toLowerCase())
+        template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (template.author && template.author.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (template.tags && template.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())))
     );
 
-    const totalPages = Math.ceil(filteredTemplates.length / ITEMS_PER_PAGE);
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const currentTemplates = filteredTemplates.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    const currentTemplates = filteredTemplates.slice(0, displayCount);
+    const hasMore = displayCount < filteredTemplates.length;
 
-    const handlePageChange = (newPage: number) => {
-        if (newPage >= 1 && newPage <= totalPages) {
-            setCurrentPage(newPage);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 无限滚动加载更多
+    const loadMore = useCallback(() => {
+        if (hasMore) {
+            setDisplayCount(prev => prev + ITEMS_PER_LOAD);
         }
-    };
+    }, [hasMore]);
+
+    // Intersection Observer 用于自动加载
+    useEffect(() => {
+        if (!loadMoreRef.current || !hasMore) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting) {
+                    loadMore();
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        observer.observe(loadMoreRef.current);
+
+        return () => observer.disconnect();
+    }, [loadMore, hasMore]);
 
     if (isLoading) {
         return <div className="w-full h-full flex justify-center items-center"><Spinner /></div>;
@@ -133,6 +154,16 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
                 <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto">
                     探索精心策划的提示词模板库，激发您的创作灵感。
                 </p>
+                <div className="flex justify-center gap-4 text-sm font-mono">
+                    <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-lg border border-blue-500/20">
+                        总计: {templates.length}
+                    </span>
+                    {searchQuery && (
+                        <span className="bg-green-500/10 text-green-400 px-3 py-1 rounded-lg border border-green-500/20">
+                            匹配: {filteredTemplates.length}
+                        </span>
+                    )}
+                </div>
             </div>
             
             {/* Search Bar */}
@@ -165,30 +196,30 @@ const TemplateLibraryPage: React.FC<TemplateLibraryPageProps> = ({ onTemplateSel
                     ))
                 ) : (
                      <div className="col-span-full text-center py-20 glass-panel rounded-3xl">
-                        <p className="text-gray-400 text-lg">找不到匹配 “<span className="font-semibold text-white">{searchQuery}</span>” 的模板。</p>
+                        <p className="text-gray-400 text-lg">找不到匹配 "<span className="font-semibold text-white">{searchQuery}</span>" 的模板。</p>
                     </div>
                 )}
             </div>
 
-            {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-4 mt-16">
-                    <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="px-5 py-2.5 glass-button rounded-xl disabled:opacity-30 transition-all text-sm font-semibold"
-                    >
-                        上一页
-                    </button>
-                    <span className="text-gray-400 font-mono bg-black/30 px-3 py-1 rounded-lg border border-white/5">
-                        {currentPage} / {totalPages}
+            {/* 无限滚动加载指示器 */}
+            {hasMore && (
+                <div ref={loadMoreRef} className="flex justify-center items-center gap-3 mt-16 py-8">
+                    <Spinner className="w-6 h-6 text-blue-500" />
+                    <span className="text-gray-400 font-mono text-sm">
+                        加载更多... ({currentTemplates.length} / {filteredTemplates.length})
                     </span>
-                    <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className="px-5 py-2.5 glass-button rounded-xl disabled:opacity-30 transition-all text-sm font-semibold"
-                    >
-                        下一页
-                    </button>
+                </div>
+            )}
+
+            {/* 已加载全部 */}
+            {!hasMore && filteredTemplates.length > ITEMS_PER_LOAD && (
+                <div className="text-center mt-16 py-8">
+                    <div className="inline-flex items-center gap-2 bg-green-500/10 text-green-400 px-4 py-2 rounded-lg border border-green-500/20">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-mono text-sm">已加载全部 {filteredTemplates.length} 个模板</span>
+                    </div>
                 </div>
             )}
         </div>
